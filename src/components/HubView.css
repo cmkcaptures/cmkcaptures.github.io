@@ -1,15 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap');
 
-.app.app--hub { padding: 0; }
-.app--hub .app-header {
   margin: 0; padding: 12px 24px; border: 0; background: #12344d;
 }
-.app--hub .wordmark { font: 900 22px Nunito, sans-serif; color: #fff; }
-.app--hub .brand-tick { display: none; }
-.app--hub .nav-link { font: 800 14px Nunito, sans-serif; color: #b9d7e8; }
-.app--hub .nav-link.active, .app--hub .nav-link:hover { color: #ffd21f; }
-.app--hub .icon-btn { font: 800 13px Nunito, sans-serif; color: #fff; border-color: #fff5; }
-.app--hub .btn-brass { font: 800 13px Nunito, sans-serif; background: #ffd21f; color: #12344d; }
 
 .px {
   --px-ink: #12344d;

@@ -17,6 +17,7 @@ import ClientGallery from './components/ClientGallery'
 import StudioGate from './components/StudioGate'
 import { listSentGalleries } from './galleryApi'
 import './App.css'
+import './StudioTheme.css'
 
 const SHOW_THUMBS = true
 
@@ -130,7 +131,7 @@ function StudioApp() {
   const followUpCount = clients.filter(needsFollowUp).length
 
   return (
-    <div className={`app${view === 'hub' ? ' app--hub' : ''}`}>
+    <div className="app">
       <header className="app-header">
         <div className="brand">
           <span className="wordmark">PhotoFlow</span>

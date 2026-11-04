@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import './Gallery.css'
+import '../StudioTheme.css'
 
 const OWNER_EMAIL = 'cmkcaptures@gmail.com'
 
