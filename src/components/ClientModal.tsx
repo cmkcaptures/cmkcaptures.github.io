@@ -28,6 +28,10 @@ function emptyClient(): Client {
     galleryUrl: '',
     galleryPassword: '',
     galleryDeliveredAt: '',
+    referredBy: '',
+    rebookOn: '',
+    costs: '',
+    hoursWorked: '',
     createdAt: now,
     lastUpdated: now,
   }
@@ -153,6 +157,45 @@ export default function ClientModal({ client, signature, onSave, onDelete, onClo
             rows={3}
             placeholder="Location ideas, package details, anything to remember"
           />
+        </div>
+
+        <div className="field-grid">
+          <div className="field">
+            <label className="field-label">Referred by</label>
+            <input
+              value={form.referredBy}
+              onChange={(e) => update('referredBy', e.target.value)}
+              placeholder="Who sent them to you"
+            />
+          </div>
+          <div className="field">
+            <label className="field-label">Rebook on</label>
+            <input
+              type="date"
+              value={form.rebookOn}
+              onChange={(e) => update('rebookOn', e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="field-grid">
+          <div className="field">
+            <label className="field-label">Costs (travel etc.)</label>
+            <input
+              value={form.costs}
+              onChange={(e) => update('costs', e.target.value)}
+              placeholder="£0"
+            />
+          </div>
+          <div className="field">
+            <label className="field-label">Hours worked</label>
+            <input
+              inputMode="decimal"
+              value={form.hoursWorked}
+              onChange={(e) => update('hoursWorked', e.target.value)}
+              placeholder="Shooting + editing"
+            />
+          </div>
         </div>
 
         <div className="gallery-section">

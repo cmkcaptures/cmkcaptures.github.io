@@ -265,7 +265,12 @@ function StudioApp() {
       )}
       {view === 'content' && <ContentView />}
       {view === 'growth' && (
-        <GrowthHub onLeadBooked={addClientFromLead} onBookingAdded={addClientFromBooking} />
+        <GrowthHub
+          clients={clients}
+          onOpenClient={openEditClient}
+          onLeadBooked={addClientFromLead}
+          onBookingAdded={addClientFromBooking}
+        />
       )}
 
       {showClientModal && (

@@ -22,6 +22,10 @@ export interface Client {
   galleryUrl: string
   galleryPassword: string
   galleryDeliveredAt: string
+  referredBy: string
+  rebookOn: string
+  costs: string
+  hoursWorked: string
   createdAt: string
   lastUpdated: string
 }
@@ -43,6 +47,10 @@ export function normalizeClient(c: Partial<Client> & { id: string }): Client {
     galleryUrl: c.galleryUrl ?? '',
     galleryPassword: c.galleryPassword ?? '',
     galleryDeliveredAt: c.galleryDeliveredAt ?? '',
+    referredBy: c.referredBy ?? '',
+    rebookOn: c.rebookOn ?? '',
+    costs: c.costs ?? '',
+    hoursWorked: c.hoursWorked ?? '',
     createdAt: c.createdAt ?? now,
     lastUpdated: c.lastUpdated ?? now,
   }
