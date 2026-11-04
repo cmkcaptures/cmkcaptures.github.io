@@ -3,54 +3,14 @@ import { portfolio } from './portfolioData'
 import { supabase } from '../supabase'
 import './BookingFlow.css'
 
-const TIMES = [
-  '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM',
-  '12:00 PM', '12:30 PM', '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM',
-  '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM',
-]
+const TIMES = ['Morning', 'Afternoon', 'Evening', 'Late night', 'Not sure yet']
 const WEEKDAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
-
-type Avail = 'booked' | 'pending' | 'partial'
 
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Demo availability, relative to today. Real shared availability comes from the
-// backend later — this just shows how the calendar reads booked/pending/partial.
-function mockAvailability(): Record<string, Avail> {
-  const t = new Date()
-  const at = (n: number) => {
-    const d = new Date(t)
-    d.setDate(d.getDate() + n)
-    return iso(d)
-  }
-  return {
-    [at(3)]: 'booked',
-    [at(5)]: 'pending',
-    [at(8)]: 'partial',
-    [at(12)]: 'booked',
-    [at(16)]: 'partial',
-    [at(21)]: 'pending',
-  }
-}
-
-const AVAIL_LABEL: Record<Avail, string> = {
-  booked: 'Booked',
-  pending: 'Pending',
-  partial: 'Partially booked',
-}
-
-// Demo markers are OFF for the live site — showing fake "booked" dates would turn
-// away real bookings. Flip to true to preview the states; real shared availability
-// arrives with the backend.
-const SHOW_DEMO_AVAILABILITY = false
-
 export default function BookingFlow() {
-  const availability = useMemo(
-    () => (SHOW_DEMO_AVAILABILITY ? mockAvailability() : {} as Record<string, Avail>),
-    [],
-  )
   const today = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -95,9 +55,7 @@ export default function BookingFlow() {
     const d = new Date(cursor.getFullYear(), cursor.getMonth(), day)
     const key = iso(d)
     const isPast = d < today
-    const avail = availability[key]
-    const fullyBooked = avail === 'booked'
-    return { key, isPast, avail, disabled: isPast || fullyBooked }
+    return { key, disabled: isPast }
   }
 
   const canNext1 = date && time
@@ -129,7 +87,7 @@ export default function BookingFlow() {
       })
       .catch(() => {
         // Never lose a booking — fall back to email with the details.
-        const b = `Name: ${details.name}\nEmail: ${details.email}\nPhone: ${details.phone}\nShoot: ${details.type}\nDate: ${formattedDate()} at ${time}\n\n${details.message}`
+        const b = `Name: ${details.name}\nEmail: ${details.email}\nPhone: ${details.phone}\nShoot: ${details.type}\nDate: ${formattedDate()} (${time})\n\n${details.message}`
         window.location.href = `mailto:${portfolio.email}?subject=${encodeURIComponent(
           `Booking request — ${details.type}`,
         )}&body=${encodeURIComponent(b)}`
@@ -141,10 +99,10 @@ export default function BookingFlow() {
     return (
       <div className="bk-done">
         <div className="bk-done-check">✓</div>
-        <h3>Booking requested</h3>
+        <h3>Request sent</h3>
         <p>
-          Thanks {details.name.split(' ')[0]} — your {formattedDate()} at {time} slot is reserved.
-          I'll confirm shortly and send your deposit link to lock it in.
+          Thanks {details.name.split(' ')[0]} — I've got your request for {formattedDate()}.
+          I'll check my availability and get back to you. Your date is confirmed once the 50% deposit is paid.
         </p>
       </div>
     )
@@ -169,7 +127,7 @@ export default function BookingFlow() {
         <div className="bk-body">
           <div className="bk-cols">
             <div className="bk-cal-col">
-              <span className="bk-label">Select date</span>
+              <span className="bk-label">Date you'd like</span>
               <div className="bk-cal">
                 <div className="bk-cal-head">
                   <span className="bk-month">{monthLabel}</span>
@@ -192,9 +150,7 @@ export default function BookingFlow() {
                     return (
                       <button
                         key={day}
-                        className={`bk-day${date === info.key ? ' selected' : ''}${
-                          info.avail ? ` avail-${info.avail}` : ''
-                        }`}
+                        className={`bk-day${date === info.key ? ' selected' : ''}`}
                         disabled={info.disabled}
                         onClick={() => setDate(info.key)}
                       >
@@ -204,20 +160,10 @@ export default function BookingFlow() {
                   })}
                 </div>
               </div>
-              {Object.keys(availability).length > 0 && (
-                <div className="bk-legend">
-                  {(Object.keys(AVAIL_LABEL) as Avail[]).map((a) => (
-                    <span className="bk-legend-item" key={a}>
-                      <span className={`bk-dot avail-${a}`} />
-                      {AVAIL_LABEL[a]}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
             <div className="bk-times-col">
-              <span className="bk-label">Select time</span>
+              <span className="bk-label">Roughly when</span>
               <div className="bk-times">
                 {TIMES.map((t) => (
                   <button
