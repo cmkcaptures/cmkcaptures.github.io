@@ -5,6 +5,7 @@ import type { Client } from '../types'
 import ClientInsights from './ClientInsights'
 import CollabTracker from './CollabTracker'
 import PresetsLibrary from './PresetsLibrary'
+import Scoreboard from './Scoreboard'
 import ReviewsManager from './ReviewsManager'
 import BookingsInbox from './BookingsInbox'
 import GrowthView from './GrowthView'
@@ -33,6 +34,7 @@ export default function GrowthHub({ clients, onOpenClient, onLeadBooked, onBooki
   const [tab, setTab] = useState<Tab>('leads')
   return (
     <div>
+      <Scoreboard clients={clients} />
       <div className="px-tabs gr-tabs">
         {TABS.map((t) => (
           <button key={t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>

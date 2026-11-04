@@ -28,8 +28,8 @@ export const portfolio = {
 
   // Where inquiries are sent + where people find you.
   email: 'cmkcaptures@gmail.com',
-  instagram: 'https://instagram.com/cmkcaptures',
-  instagramHandle: '@cmkcaptures',
+  instagram: 'https://instagram.com/cmk._7',
+  instagramHandle: '@cmk._7',
 
   workedWith: ['Hurricane Events', 'Afro Indies', 'Franglish'],
 

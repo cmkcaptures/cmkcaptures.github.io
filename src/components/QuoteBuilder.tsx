@@ -15,7 +15,7 @@ const TERMS = [
   'Your date is confirmed once the deposit is paid. The deposit is non-refundable.',
   'The remaining balance is due on or before delivery of your photos.',
   'Edited photos are delivered within 48 hours of the shoot.',
-  'You can use the photos for your own socials and promotion, with credit to @cmkcaptures. Paid advertising needs agreeing first.',
+  'You can use the photos for your own socials and promotion, with credit to @cmk._7. Paid advertising needs agreeing first.',
   'CMK Captures keeps the rights to the photos and can use them in its portfolio and marketing.',
 ]
 

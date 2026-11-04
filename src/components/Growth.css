@@ -18,6 +18,15 @@
 .gr-search { width: 100%; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #ffffff59; border-radius: 8px; box-sizing: border-box; }
 .gr-search::placeholder { color: #b9d7e8; }
 .gr-delete-inline { margin: 0; }
+.gr-score { margin-bottom: 18px; }
+.gr-score-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.gr-stat { display: flex; flex: 1 1 110px; flex-direction: column; padding: 10px 14px; background: #12344d; border-radius: 10px; }
+.gr-stat b { font: 900 24px Nunito, sans-serif; color: #ffd21f; }
+.gr-stat span { font: 800 12px Nunito, sans-serif; }
+.gr-stat small { font: 700 11px Nunito, sans-serif; color: #b9d7e8; }
+.gr-follow-form { display: flex; flex: 1 1 220px; align-items: center; gap: 6px; }
+.gr-follow-form input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #ffffff59; border-radius: 8px; }
+.gr-follow-form input::placeholder { color: #b9d7e8; }
 .gr-terms-toggle { margin-top: 14px; cursor: pointer; }
 .gr-quote { white-space: pre-wrap; }
 .gr-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
