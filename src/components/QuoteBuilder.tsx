@@ -9,7 +9,7 @@ const ADD_ONS = [
   { name: 'Rush next-day delivery', price: 40 },
 ]
 
-const DEPOSIT_RATE = 0.3
+const DEPOSIT_RATE = 0.5
 
 const TERMS = [
   'Your date is confirmed once the deposit is paid. The deposit is non-refundable.',

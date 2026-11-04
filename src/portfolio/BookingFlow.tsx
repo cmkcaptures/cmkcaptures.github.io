@@ -9,7 +9,6 @@ const TIMES = [
   '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM',
 ]
 const WEEKDAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
-const DEPOSIT = 50
 
 type Avail = 'booked' | 'pending' | 'partial'
 
@@ -301,7 +300,7 @@ export default function BookingFlow() {
           <div className="bk-deposit">
             <div className="bk-deposit-head">
               <span className="bk-label">Deposit to secure your date</span>
-              <span className="bk-deposit-amount">£{DEPOSIT}</span>
+              <span className="bk-deposit-amount">50%</span>
             </div>
             <div className="bk-pay-methods">
               <span className="bk-pay-chip selected">💳 Card</span>
