@@ -28,6 +28,15 @@
   margin: 24px;
 }
 
+.sync-error {
+  padding: 10px 14px;
+  font-weight: 800;
+  color: #fff;
+  background: #c9373c;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
 .app-header {
   margin: 0;
   padding: 12px 24px;

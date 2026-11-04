@@ -18,6 +18,7 @@ import type { Lead } from './growth'
 import Portfolio from './portfolio/Portfolio'
 import ClientGallery from './components/ClientGallery'
 import StudioGate from './components/StudioGate'
+import { useCloudSync } from './useCloudSync'
 import ReviewPage from './components/ReviewPage'
 import { listSentGalleries } from './galleryApi'
 import './App.css'
@@ -46,6 +47,7 @@ function StudioApp() {
   const [clients, setClients] = useState<Client[]>(() => loadClients())
   const [invoices, setInvoices] = useState<Invoice[]>(() => loadInvoices())
   const [business, setBusiness] = useState<BusinessProfile>(() => loadBusiness())
+  const sync = useCloudSync(clients, invoices, business, setClients, setInvoices, setBusiness)
 
   const [view, setView] = useState<View>('hub')
 
@@ -59,6 +61,7 @@ function StudioApp() {
   const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
+    if (!sync.ready) return
     listSentGalleries()
       .then((sent) => {
         const sentAt = new Map(sent.map((g) => [g.client_id, g.sent_at]))
@@ -76,7 +79,7 @@ function StudioApp() {
         )
       })
       .catch(() => {})
-  }, [])
+  }, [sync.ready])
 
   useEffect(() => {
     saveClients(clients)
@@ -243,6 +246,11 @@ function StudioApp() {
         </div>
       </header>
 
+      {sync.error && (
+        <p className="sync-error" role="alert">
+          Not syncing: changes are only saved on this device for now. ({sync.error})
+        </p>
+      )}
       {view === 'hub' && (
         <HubView
           clients={clients}
