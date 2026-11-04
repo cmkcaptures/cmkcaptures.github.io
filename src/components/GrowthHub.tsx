@@ -6,16 +6,20 @@ import ClientInsights from './ClientInsights'
 import CollabTracker from './CollabTracker'
 import PresetsLibrary from './PresetsLibrary'
 import Scoreboard from './Scoreboard'
+import TagFinder from './TagFinder'
+import PostPlanner from './PostPlanner'
 import ReviewsManager from './ReviewsManager'
 import BookingsInbox from './BookingsInbox'
 import GrowthView from './GrowthView'
 import QuoteBuilder from './QuoteBuilder'
 
-type Tab = 'leads' | 'bookings' | 'quotes' | 'insights' | 'collabs' | 'reviews' | 'presets'
+type Tab = 'leads' | 'bookings' | 'quotes' | 'insights' | 'collabs' | 'reviews' | 'presets' | 'tags' | 'posts'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'leads', label: 'Leads' },
   { key: 'bookings', label: 'Bookings' },
+  { key: 'tags', label: 'Tags' },
+  { key: 'posts', label: 'Posts' },
   { key: 'quotes', label: 'Quotes' },
   { key: 'insights', label: 'Queue & Money' },
   { key: 'collabs', label: 'Collabs' },
@@ -49,6 +53,8 @@ export default function GrowthHub({ clients, onOpenClient, onLeadBooked, onBooki
       {tab === 'collabs' && <CollabTracker />}
       {tab === 'reviews' && <ReviewsManager />}
       {tab === 'presets' && <PresetsLibrary />}
+      {tab === 'tags' && <TagFinder />}
+      {tab === 'posts' && <PostPlanner />}
     </div>
   )
 }

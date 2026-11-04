@@ -27,6 +27,12 @@
 .gr-follow-form { display: flex; flex: 1 1 220px; align-items: center; gap: 6px; }
 .gr-follow-form input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #ffffff59; border-radius: 8px; }
 .gr-follow-form input::placeholder { color: #b9d7e8; }
+.gr-upload { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.gr-posts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.gr-post { margin: 0; }
+.gr-post img { display: block; width: 100%; max-height: 340px; object-fit: contain; margin-bottom: 10px; background: #12344d; border-radius: 8px; }
+.gr-post textarea, .gr-post input { width: 100%; padding: 10px; border: 1px solid #ffffff59; border-radius: 8px; box-sizing: border-box; }
+.gr-post .gr-actions { margin-top: 8px; }
 .gr-terms-toggle { margin-top: 14px; cursor: pointer; }
 .gr-quote { white-space: pre-wrap; }
 .gr-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
