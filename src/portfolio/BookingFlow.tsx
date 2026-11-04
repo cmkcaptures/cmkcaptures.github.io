@@ -248,13 +248,9 @@ export default function BookingFlow() {
               <span className="bk-label">Deposit to secure your date</span>
               <span className="bk-deposit-amount">50%</span>
             </div>
-            <div className="bk-pay-methods">
-              <span className="bk-pay-chip selected">💳 Card</span>
-              <span className="bk-pay-chip">🏦 Bank transfer</span>
-            </div>
             <p className="bk-pay-note">
-              Secure card payment activates once the site is live — for now your date is held and
-              I'll send a deposit link to confirm.
+              Nothing to pay yet. If I'm free, I'll send you the details for the deposit. Your date
+              is confirmed once it's paid. The deposit is non-refundable.
             </p>
           </div>
 
