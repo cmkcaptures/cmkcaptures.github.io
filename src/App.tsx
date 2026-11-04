@@ -12,7 +12,8 @@ import InvoicePreview from './components/InvoicePreview'
 import SettingsModal from './components/SettingsModal'
 import ContentView from './components/ContentView'
 import HubView from './components/HubView'
-import GrowthView from './components/GrowthView'
+import GrowthHub from './components/GrowthHub'
+import type { Booking } from './components/BookingsInbox'
 import type { Lead } from './growth'
 import Portfolio from './portfolio/Portfolio'
 import ClientGallery from './components/ClientGallery'
@@ -130,6 +131,26 @@ function StudioApp() {
     setShowInvoiceModal(false)
   }
 
+  function addClientFromBooking(booking: Booking) {
+    const now = new Date().toISOString()
+    setClients((prev) => [
+      ...prev,
+      normalizeClient({
+        id: crypto.randomUUID(),
+        name: booking.name,
+        contact: booking.email,
+        type: booking.shoot_type,
+        stage: 'inquiry',
+        shootDate: booking.shoot_date,
+        notes: [booking.shoot_time && `Time: ${booking.shoot_time}`, booking.phone && `Phone: ${booking.phone}`, booking.message]
+          .filter(Boolean)
+          .join('\n'),
+        createdAt: now,
+        lastUpdated: now,
+      }),
+    ])
+  }
+
   function addClientFromLead(lead: Lead) {
     const now = new Date().toISOString()
     setClients((prev) => [
@@ -243,7 +264,9 @@ function StudioApp() {
         />
       )}
       {view === 'content' && <ContentView />}
-      {view === 'growth' && <GrowthView onBooked={addClientFromLead} />}
+      {view === 'growth' && (
+        <GrowthHub onLeadBooked={addClientFromLead} onBookingAdded={addClientFromBooking} />
+      )}
 
       {showClientModal && (
         <ClientModal
