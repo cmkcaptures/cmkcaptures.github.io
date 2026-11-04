@@ -163,6 +163,7 @@ export default function ClientModal({ client, signature, onSave, onDelete, onClo
           <GalleryManager
             clientId={form.id}
             clientName={form.name || 'Your gallery'}
+            contact={form.contact}
             onLink={(url) => update('galleryUrl', url)}
           />
           <input

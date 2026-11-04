@@ -3,6 +3,9 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../supabase'
 import type { Gallery, GalleryPhoto } from '../galleryApi'
 import {
+  cancelEmail,
+  refreshGallery,
+  scheduleEmail,
   deletePhoto,
   galleryLink,
   getOrCreateGallery,
@@ -16,6 +19,7 @@ import './Gallery.css'
 interface Props {
   clientId: string
   clientName: string
+  contact: string
   onLink: (url: string) => void
 }
 
@@ -25,7 +29,7 @@ function toLocalInput(iso: string | null): string {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 
-export default function GalleryManager({ clientId, clientName, onLink }: Props) {
+export default function GalleryManager({ clientId, clientName, contact, onLink }: Props) {
   const [session, setSession] = useState<Session | null>(null)
   const [email, setEmail] = useState('cmkcaptures@gmail.com')
   const [password, setPassword] = useState('')
@@ -34,6 +38,8 @@ export default function GalleryManager({ clientId, clientName, onLink }: Props) 
   const [progress, setProgress] = useState('')
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [clientEmail, setClientEmail] = useState(contact.includes('@') ? contact.trim() : '')
+  const canSend = photos.length > 0 && /^\S+@\S+\.\S+$/.test(clientEmail.trim())
 
   useEffect(() => {
     if (!supabase) return
@@ -47,6 +53,7 @@ export default function GalleryManager({ clientId, clientName, onLink }: Props) 
     getOrCreateGallery(clientId, clientName)
       .then(async (g) => {
         setGallery(g)
+        if (g.client_email) setClientEmail(g.client_email)
         setPhotos(await listPhotos(g.id))
         onLink(galleryLink(g.token))
       })
@@ -111,6 +118,27 @@ export default function GalleryManager({ clientId, clientName, onLink }: Props) 
     }
   }
 
+  async function sendEmail(sendAt: string) {
+    if (!gallery) return
+    setError('')
+    try {
+      await scheduleEmail(gallery.id, clientEmail.trim(), sendAt)
+      setGallery(await refreshGallery(gallery.id))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function cancelSend() {
+    if (!gallery) return
+    try {
+      await cancelEmail(gallery.id)
+      setGallery(await refreshGallery(gallery.id))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   if (!session) {
     return (
       <div className="gm">
@@ -169,6 +197,48 @@ export default function GalleryManager({ clientId, clientName, onLink }: Props) 
           onChange={(e) => changeRelease(e.target.value)}
         />
       </div>
+
+      <div className="field">
+        <label className="field-label">Client email</label>
+        <input
+          type="email"
+          value={clientEmail}
+          onChange={(e) => setClientEmail(e.target.value)}
+          placeholder="client@email.com"
+        />
+      </div>
+      <div className="gallery-actions">
+        <button
+          className="gallery-btn accent"
+          type="button"
+          disabled={!canSend}
+          onClick={() => sendEmail(new Date().toISOString())}
+        >
+          Send now
+        </button>
+        {gallery?.release_at && new Date(gallery.release_at) > new Date() && (
+          <button
+            className="gallery-btn"
+            type="button"
+            disabled={!canSend}
+            onClick={() => sendEmail(gallery.release_at!)}
+          >
+            Email on access date
+          </button>
+        )}
+        {gallery?.send_at && !gallery.sent_at && (
+          <button className="gallery-btn" type="button" onClick={cancelSend}>
+            Cancel email
+          </button>
+        )}
+      </div>
+      {gallery?.sent_at && (
+        <p className="gm-note">Emailed to {gallery.client_email} on {new Date(gallery.sent_at).toLocaleString('en-GB')}</p>
+      )}
+      {gallery?.send_at && !gallery.sent_at && !gallery.send_error && (
+        <p className="gm-note">Email scheduled for {new Date(gallery.send_at).toLocaleString('en-GB')}</p>
+      )}
+      {gallery?.send_error && <p className="gm-error">Email failed: {gallery.send_error}</p>}
 
       {photos.length > 0 && (
         <>

@@ -9,6 +9,10 @@ export interface Gallery {
   client_id: string
   title: string
   release_at: string | null
+  client_email: string | null
+  send_at: string | null
+  sent_at: string | null
+  send_error: string | null
 }
 
 export interface GalleryPhoto {
@@ -82,6 +86,35 @@ export async function deletePhoto(photo: GalleryPhoto): Promise<void> {
 export async function setRelease(galleryId: string, releaseAt: string | null): Promise<void> {
   const { error } = await db().from('galleries').update({ release_at: releaseAt }).eq('id', galleryId)
   if (error) throw error
+}
+
+export async function scheduleEmail(galleryId: string, email: string, sendAt: string): Promise<void> {
+  const { error } = await db()
+    .from('galleries')
+    .update({ client_email: email, send_at: sendAt, sent_at: null, send_error: null })
+    .eq('id', galleryId)
+  if (error) throw error
+  if (new Date(sendAt) <= new Date()) await db().functions.invoke('send-gallery-emails')
+}
+
+export async function cancelEmail(galleryId: string): Promise<void> {
+  const { error } = await db().from('galleries').update({ send_at: null }).eq('id', galleryId)
+  if (error) throw error
+}
+
+export async function refreshGallery(galleryId: string): Promise<Gallery> {
+  const { data, error } = await db().from('galleries').select('*').eq('id', galleryId).single()
+  if (error) throw error
+  return data as Gallery
+}
+
+export async function listSentGalleries(): Promise<{ client_id: string; sent_at: string }[]> {
+  const { data, error } = await db()
+    .from('galleries')
+    .select('client_id,sent_at')
+    .not('sent_at', 'is', null)
+  if (error) throw error
+  return data as { client_id: string; sent_at: string }[]
 }
 
 export async function fetchPublicGallery(token: string): Promise<PublicGallery | null> {

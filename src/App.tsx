@@ -15,6 +15,7 @@ import HubView from './components/HubView'
 import Portfolio from './portfolio/Portfolio'
 import ClientGallery from './components/ClientGallery'
 import StudioGate from './components/StudioGate'
+import { listSentGalleries } from './galleryApi'
 import './App.css'
 
 const SHOW_THUMBS = true
@@ -50,6 +51,26 @@ function StudioApp() {
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null)
 
   const [showSettings, setShowSettings] = useState(false)
+
+  useEffect(() => {
+    listSentGalleries()
+      .then((sent) => {
+        const sentAt = new Map(sent.map((g) => [g.client_id, g.sent_at]))
+        setClients((prev) =>
+          prev.map((c) => {
+            const at = sentAt.get(c.id)
+            if (!at || c.galleryDeliveredAt) return c
+            return {
+              ...c,
+              stage: c.stage === 'paid' ? c.stage : 'delivered',
+              galleryDeliveredAt: at.slice(0, 10),
+              lastUpdated: new Date().toISOString(),
+            }
+          }),
+        )
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     saveClients(clients)
