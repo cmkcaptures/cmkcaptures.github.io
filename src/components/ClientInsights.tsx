@@ -11,6 +11,8 @@ function parseDate(text: string): Date | null {
   const iso = /^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T00:00:00` : text
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return null
+  // Browsers read a yearless date like "Aug 14" as 2001.
+  if (date.getFullYear() < 2020) date.setFullYear(new Date().getFullYear())
   return date
 }
 
