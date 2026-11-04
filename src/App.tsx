@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Client } from './types'
-import { needsFollowUp } from './types'
+import { needsFollowUp, normalizeClient } from './types'
 import type { Invoice, BusinessProfile } from './invoiceTypes'
 import { loadClients, saveClients } from './storage'
 import { loadInvoices, saveInvoices, loadBusiness, saveBusiness } from './invoiceStorage'
@@ -12,6 +12,8 @@ import InvoicePreview from './components/InvoicePreview'
 import SettingsModal from './components/SettingsModal'
 import ContentView from './components/ContentView'
 import HubView from './components/HubView'
+import GrowthView from './components/GrowthView'
+import type { Lead } from './growth'
 import Portfolio from './portfolio/Portfolio'
 import ClientGallery from './components/ClientGallery'
 import StudioGate from './components/StudioGate'
@@ -21,7 +23,7 @@ import './StudioTheme.css'
 
 const SHOW_THUMBS = true
 
-type View = 'hub' | 'pipeline' | 'invoices' | 'content'
+type View = 'hub' | 'pipeline' | 'invoices' | 'content' | 'growth'
 
 function App() {
   const galleryMatch = window.location.pathname.match(/^\/g\/([^/]+)/)
@@ -128,6 +130,24 @@ function StudioApp() {
     setShowInvoiceModal(false)
   }
 
+  function addClientFromLead(lead: Lead) {
+    const now = new Date().toISOString()
+    setClients((prev) => [
+      ...prev,
+      normalizeClient({
+        id: crypto.randomUUID(),
+        name: lead.name,
+        contact: lead.handle,
+        type: lead.kind === 'artist' || lead.kind === 'model' ? 'Portrait' : 'Event',
+        stage: 'booked',
+        shootDate: lead.event_date,
+        notes: lead.notes,
+        createdAt: now,
+        lastUpdated: now,
+      }),
+    ])
+  }
+
   const followUpCount = clients.filter(needsFollowUp).length
 
   return (
@@ -160,6 +180,12 @@ function StudioApp() {
               onClick={() => setView('content')}
             >
               Content
+            </button>
+            <button
+              className={`nav-link${view === 'growth' ? ' active' : ''}`}
+              onClick={() => setView('growth')}
+            >
+              Growth
             </button>
           </nav>
         </div>
@@ -217,6 +243,7 @@ function StudioApp() {
         />
       )}
       {view === 'content' && <ContentView />}
+      {view === 'growth' && <GrowthView onBooked={addClientFromLead} />}
 
       {showClientModal && (
         <ClientModal
