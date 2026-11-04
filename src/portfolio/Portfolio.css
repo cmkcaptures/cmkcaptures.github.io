@@ -350,6 +350,12 @@
   color: var(--text-tertiary);
 }
 
+/* Reviews */
+.pf-reviews { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.pf-review { margin: 0; padding: 24px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 14px; }
+.pf-review p { margin: 0 0 14px; font: italic 500 20px/1.4 var(--serif); color: var(--text-primary); overflow-wrap: anywhere; }
+.pf-review cite { font: 600 13px var(--sans); font-style: normal; color: var(--text-tertiary); }
+
 /* Responsive */
 /* Packages */
 .pf-packages-grid {

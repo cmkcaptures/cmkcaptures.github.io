@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { portfolio, GALLERY_GRADIENTS } from './portfolioData'
+import { supabase } from '../supabase'
 import BookingFlow from './BookingFlow'
 import './Portfolio.css'
 
@@ -14,6 +16,17 @@ function isPreview() {
 
 export default function Portfolio() {
   const showPackages = PACKAGES_PUBLIC || isPreview()
+  const [reviews, setReviews] = useState<{ id: string; name: string; body: string }[]>([])
+
+  useEffect(() => {
+    supabase
+      ?.from('reviews')
+      .select('id,name,body')
+      .eq('approved', true)
+      .order('created_at', { ascending: false })
+      .limit(6)
+      .then(({ data }) => setReviews(data ?? []))
+  }, [])
 
   function scrollToInquire() {
     document.getElementById('inquire')?.scrollIntoView({ behavior: 'smooth' })
@@ -133,6 +146,23 @@ export default function Portfolio() {
             ))}
           </div>
           <p className="pf-packages-note">{portfolio.packagesNote}</p>
+        </section>
+      )}
+
+      {reviews.length > 0 && (
+        <section className="pf-section" id="reviews">
+          <div className="pf-section-head">
+            <span className="pf-overline">Kind words</span>
+            <h2 className="pf-section-title">What clients say</h2>
+          </div>
+          <div className="pf-reviews">
+            {reviews.map((r) => (
+              <blockquote className="pf-review" key={r.id}>
+                <p>{r.body}</p>
+                <cite>{r.name}</cite>
+              </blockquote>
+            ))}
+          </div>
         </section>
       )}
 

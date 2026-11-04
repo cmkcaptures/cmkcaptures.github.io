@@ -18,6 +18,7 @@ import type { Lead } from './growth'
 import Portfolio from './portfolio/Portfolio'
 import ClientGallery from './components/ClientGallery'
 import StudioGate from './components/StudioGate'
+import ReviewPage from './components/ReviewPage'
 import { listSentGalleries } from './galleryApi'
 import './App.css'
 import './StudioTheme.css'
@@ -29,6 +30,7 @@ type View = 'hub' | 'pipeline' | 'invoices' | 'content' | 'growth'
 function App() {
   const galleryMatch = window.location.pathname.match(/^\/g\/([^/]+)/)
   if (galleryMatch) return <ClientGallery token={galleryMatch[1]} />
+  if (window.location.pathname.startsWith('/review')) return <ReviewPage />
   // Public portfolio lives at "/"; the private CRM lives at "/studio".
   if (!window.location.pathname.startsWith('/studio')) {
     return <Portfolio />

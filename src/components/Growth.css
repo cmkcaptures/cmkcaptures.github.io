@@ -11,6 +11,13 @@
 .gr-total { margin: 0 4px 10px; font-weight: 900; color: #ffd21f; }
 .gr-static { cursor: default; }
 .gr-static:hover { border-color: transparent; }
+.gr-counters { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+.gr-counter { display: flex; align-items: center; gap: 8px; font-weight: 800; }
+.gr-counter button { width: 30px; height: 30px; font: 900 16px Nunito, sans-serif; color: #12344d; background: #ffd21f; border: 0; border-radius: 50%; cursor: pointer; }
+.gr-counter b { min-width: 18px; text-align: center; }
+.gr-search { width: 100%; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #ffffff59; border-radius: 8px; box-sizing: border-box; }
+.gr-search::placeholder { color: #b9d7e8; }
+.gr-delete-inline { margin: 0; }
 .gr-terms-toggle { margin-top: 14px; cursor: pointer; }
 .gr-quote { white-space: pre-wrap; }
 .gr-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }

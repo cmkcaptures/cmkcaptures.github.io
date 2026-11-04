@@ -23,6 +23,16 @@
   border: 1px solid var(--border-input); border-radius: 8px; padding: 13px 14px; box-sizing: border-box;
 }
 .gate-form input:focus { outline: none; border-color: var(--brass); }
+.gate-public { display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+.review-form { max-width: 460px; }
+.review-form h1 { margin: 0; font: 500 34px var(--serif); }
+.review-form textarea {
+  font: 400 15px var(--sans); color: var(--text-primary); background: var(--bg-card);
+  border: 1px solid var(--border-input); border-radius: 8px; padding: 13px 14px; box-sizing: border-box; resize: vertical;
+}
+.review-form textarea:focus { outline: none; border-color: var(--brass); }
+.pf-review-submit { font: 600 14px var(--sans); color: var(--on-brass); background: var(--brass); border: 0; border-radius: 999px; padding: 13px; cursor: pointer; }
+.review-note { margin: 0; font: 400 12px var(--sans); color: var(--text-tertiary); }
 .cg-head { padding: 40px 24px 24px; text-align: center; }
 .cg-brand { font: 600 15px var(--serif); letter-spacing: 0.22em; color: var(--text-secondary); }
 .cg-head h1 { font: 500 40px var(--serif); margin: 14px 0 0; overflow-wrap: anywhere; }

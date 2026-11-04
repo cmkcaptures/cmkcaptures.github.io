@@ -3,17 +3,23 @@ import type { Lead } from '../growth'
 import type { Booking } from './BookingsInbox'
 import type { Client } from '../types'
 import ClientInsights from './ClientInsights'
+import CollabTracker from './CollabTracker'
+import PresetsLibrary from './PresetsLibrary'
+import ReviewsManager from './ReviewsManager'
 import BookingsInbox from './BookingsInbox'
 import GrowthView from './GrowthView'
 import QuoteBuilder from './QuoteBuilder'
 
-type Tab = 'leads' | 'bookings' | 'quotes' | 'insights'
+type Tab = 'leads' | 'bookings' | 'quotes' | 'insights' | 'collabs' | 'reviews' | 'presets'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'leads', label: 'Leads' },
   { key: 'bookings', label: 'Bookings' },
   { key: 'quotes', label: 'Quotes' },
   { key: 'insights', label: 'Queue & Money' },
+  { key: 'collabs', label: 'Collabs' },
+  { key: 'reviews', label: 'Reviews' },
+  { key: 'presets', label: 'Presets' },
 ]
 
 interface Props {
@@ -38,6 +44,9 @@ export default function GrowthHub({ clients, onOpenClient, onLeadBooked, onBooki
       {tab === 'bookings' && <BookingsInbox onAdd={onBookingAdded} />}
       {tab === 'quotes' && <QuoteBuilder />}
       {tab === 'insights' && <ClientInsights clients={clients} onOpen={onOpenClient} />}
+      {tab === 'collabs' && <CollabTracker />}
+      {tab === 'reviews' && <ReviewsManager />}
+      {tab === 'presets' && <PresetsLibrary />}
     </div>
   )
 }
