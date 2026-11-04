@@ -130,7 +130,7 @@ function StudioApp() {
   const followUpCount = clients.filter(needsFollowUp).length
 
   return (
-    <div className="app">
+    <div className={`app${view === 'hub' ? ' app--hub' : ''}`}>
       <header className="app-header">
         <div className="brand">
           <span className="wordmark">PhotoFlow</span>
