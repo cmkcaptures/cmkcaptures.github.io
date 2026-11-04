@@ -1,0 +1,55 @@
+:root {
+  /* Surfaces */
+  --bg-page: #14110d;
+  --bg-card: #1b1712;
+  --bg-sunken: #14110d;
+  --bg-chip: #1b1510;
+
+  /* Borders */
+  --border-subtle: #2b241b;
+  --border-hair: #262019;
+  --border-input: #33291d;
+  --border-hover: #3a3023;
+
+  /* Text */
+  --text-primary: #efe7d8;
+  --text-secondary: #9a8f7c;
+  --text-tertiary: #7a7060;
+  --text-faint: #57503f;
+  --placeholder: #5e543f;
+
+  /* Accents */
+  --brass: #c6a15b;
+  --brass-hover: #d6b26c;
+  --on-brass: #16120c;
+  --terracotta: #d08a6a;
+
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --sans: 'Karla', system-ui, sans-serif;
+
+  color-scheme: dark;
+  font-family: var(--sans);
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-page);
+}
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--placeholder);
+}
