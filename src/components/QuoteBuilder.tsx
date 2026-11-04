@@ -11,11 +11,20 @@ const ADD_ONS = [
 
 const DEPOSIT_RATE = 0.3
 
+const TERMS = [
+  'Your date is confirmed once the deposit is paid. The deposit is non-refundable.',
+  'The remaining balance is due on or before delivery of your photos.',
+  'Edited photos are delivered within 48 hours of the shoot.',
+  'You can use the photos for your own socials and promotion, with credit to @cmkcaptures. Paid advertising needs agreeing first.',
+  'CMK Captures keeps the rights to the photos and can use them in its portfolio and marketing.',
+]
+
 export default function QuoteBuilder() {
   const [clientName, setClientName] = useState('')
   const [packageName, setPackageName] = useState(portfolio.packages[0].name)
   const [price, setPrice] = useState(String(parseMoney(portfolio.packages[0].price)))
   const [addOns, setAddOns] = useState<string[]>([])
+  const [includeTerms, setIncludeTerms] = useState(true)
   const [copied, setCopied] = useState(false)
 
   const pkg = portfolio.packages.find((p) => p.name === packageName)!
@@ -34,6 +43,7 @@ export default function QuoteBuilder() {
     `Deposit to lock in the date: ${formatMoney(deposit)}`,
     '',
     "Let me know and I'll get you booked in.",
+    ...(includeTerms ? ['', 'Booking terms:', ...TERMS.map((t) => `• ${t}`)] : []),
   ].join('\n')
 
   function choosePackage(name: string) {
@@ -87,6 +97,10 @@ export default function QuoteBuilder() {
               {a.name} +{formatMoney(a.price)}
             </button>
           ))}
+        </div>
+        <div className="checkbox-row gr-terms-toggle" onClick={() => setIncludeTerms(!includeTerms)}>
+          <span className={`checkbox-box${includeTerms ? ' checked' : ''}`} />
+          <span className="checkbox-label">Include booking terms</span>
         </div>
       </section>
       <aside className="gr-detail">

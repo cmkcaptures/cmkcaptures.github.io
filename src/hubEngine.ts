@@ -78,6 +78,21 @@ function upcomingShoots(clients: Client[]): Insight[] {
     }))
 }
 
+function depositsDue(clients: Client[]): Insight[] {
+  return clients
+    .filter((c) => c.stage === 'booked' && !c.depositPaid && !c.fullyPaid)
+    .map((c) => ({
+      id: `deposit-${c.id}`,
+      type: 'deposit-due',
+      priority: 'high' as const,
+      icon: '💷',
+      message: `Get the deposit from ${c.name}`,
+      detail: 'Their date is not locked in until it is paid',
+      actionLabel: 'Open client',
+      actionPayload: { view: 'pipeline', clientId: c.id },
+    }))
+}
+
 function unpaidDelivered(clients: Client[]): Insight[] {
   return clients
     .filter((c) => (c.stage === 'delivered' || c.stage === 'shot') && !c.fullyPaid && c.price)
@@ -188,6 +203,7 @@ export function generateInsights(
     ...overdueInvoices(invoices),
     ...followUps(clients),
     ...upcomingShoots(clients),
+    ...depositsDue(clients),
     ...unpaidDelivered(clients),
     ...revenueGoalGap(clients, invoices, business),
     ...quietPeriod(clients),
