@@ -117,9 +117,6 @@
   }
 
   .app-header {
-    position: sticky;
-    top: 0;
-    z-index: 20;
     padding: 10px 14px;
     padding-top: max(10px, env(safe-area-inset-top));
   }
@@ -135,6 +132,9 @@
   .view-nav::-webkit-scrollbar { display: none; }
   .nav-link { flex: none; padding: 8px 10px; }
   .header-actions { width: 100%; gap: 8px; flex-wrap: wrap; }
+  a.icon-btn { display: none; }
+  .gr-tabs, .gr-filters, .board-scroll { scrollbar-width: none; }
+  .gr-tabs::-webkit-scrollbar, .gr-filters::-webkit-scrollbar, .board-scroll::-webkit-scrollbar { display: none; }
   .icon-btn, .btn-brass, .btn-ghost, .gallery-btn, .btn-danger { min-height: 40px; }
 
   .px { min-height: 0; }
