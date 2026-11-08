@@ -20,7 +20,7 @@ export interface Service {
 export const portfolio = {
   wordmark: 'CMK CAPTURES',
   name: 'CMK Captures',
-  tagline: 'Concert & low-light photography',
+  tagline: 'Nightlife & event photography',
   location: 'London',
 
   intro:
