@@ -73,3 +73,12 @@
   .bd-board { grid-template-columns: repeat(5, 78vw); }
   .cc-next { opacity: 1; transform: none; }
 }
+
+/* fit five columns without sideways scroll */
+.bd-board { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.bd-col { padding: 12px 10px; }
+.cc-main { position: relative; padding-right: 12px; }
+.cc-pay { position: absolute; top: 8px; right: 8px; padding: 1px 6px; font-size: 9px; }
+.cc-text { padding-top: 10px; }
+.cc-avatar { width: 32px; height: 32px; font-size: 12px; border-radius: 10px; }
+@media (max-width: 860px) { .bd-board { grid-template-columns: repeat(5, 78vw); } }
