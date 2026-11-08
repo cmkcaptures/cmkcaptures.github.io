@@ -24,7 +24,7 @@ export const portfolio = {
   location: 'London',
 
   intro:
-    "I'm a London-based photographer who chases light in dark rooms — live music, portraits, and the moments most cameras miss. Shot on Sony, lit when it counts, always after the feeling over the pose.",
+    "I'm a London-based photographer who chases light in dark rooms — live music, portraits, and the moments most cameras miss. Lit when it counts, always after the feeling over the pose.",
 
   // Where inquiries are sent + where people find you.
   email: 'cmkcaptures@gmail.com',
