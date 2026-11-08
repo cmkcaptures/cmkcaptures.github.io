@@ -15,7 +15,7 @@
 .sp-hello { margin: auto; max-width: 340px; text-align: center; font-size: 14px; color: #8a97ad; }
 .sp-msg { max-width: 78%; padding: 10px 14px; font-size: 14px; line-height: 1.5; white-space: pre-line; border-radius: 16px; animation: st-pop .3s ease both; }
 .sp-msg.me { align-self: flex-end; color: #fff; background: linear-gradient(135deg, #2563eb, #0ea5e9); border-bottom-right-radius: 4px; }
-.sp-msg.sandy { align-self: flex-start; color: #e8eef9; background: #070b14; border: 1px solid #38d6ec33; border-bottom-left-radius: 4px; }
+.sp-msg.bot { align-self: flex-start; color: #e8eef9; background: #070b14; border: 1px solid #38d6ec33; border-bottom-left-radius: 4px; }
 .sp-msg.typing { display: flex; gap: 5px; padding: 14px; }
 .sp-msg.typing i { width: 7px; height: 7px; background: #38d6ec; border-radius: 50%; animation: sandy-dot 1s infinite; }
 .sp-msg.typing i:nth-child(2) { animation-delay: .15s; }

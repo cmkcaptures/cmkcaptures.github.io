@@ -9,7 +9,7 @@ import { addLead } from '../growth'
 import './SandyPage.css'
 
 interface Msg {
-  from: 'me' | 'sandy'
+  from: 'me' | 'bot'
   text: string
   at: number
 }
@@ -60,7 +60,7 @@ export default function SandyPage({ nudges, answers, onGo, onAddClient }: Props)
   }, [mode])
 
   function reply(text: string) {
-    setLog((l) => [...l, { from: 'sandy', text, at: Date.now() }])
+    setLog((l) => [...l, { from: 'bot', text, at: Date.now() }])
     setMode('talking')
   }
 
@@ -172,7 +172,7 @@ export default function SandyPage({ nudges, answers, onGo, onAddClient }: Props)
               </div>
             ))}
             {mode === 'thinking' && (
-              <div className="sp-msg sandy typing">
+              <div className="sp-msg bot typing">
                 <i />
                 <i />
                 <i />
