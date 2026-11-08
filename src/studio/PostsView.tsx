@@ -17,6 +17,7 @@ import {
 } from './postsApi'
 import { buildHashtags, generateCaptions } from '../captions'
 import { addDaysISO, todayISO } from '../invoiceTypes'
+import PostPerformance from './PostPerformance'
 import './Posts.css'
 
 const WEEK_DAYS = 7
@@ -306,6 +307,8 @@ export default function PostsView() {
           ))}
         </div>
       </section>
+
+      <PostPerformance />
 
       {open && (
         <PostCard

@@ -64,7 +64,7 @@ export default function HomeView({ clients, tips, greetingName, onOpenClient, on
   const [tip, setTip] = useState(0)
   const [leads, setLeads] = useState<Lead[] | null>(null)
   const [postsWaiting, setPostsWaiting] = useState<number | null>(null)
-  const [followers, setFollowers] = useState<number | null>(null)
+  const [thisWeek, setThisWeek] = useState<number | null>(null)
   const [events, setEvents] = useState<RadarEvent[] | null>(null)
   const [pitched, setPitched] = useState<string[]>([])
   const [eventError, setEventError] = useState('')
@@ -81,16 +81,17 @@ export default function HomeView({ clients, tips, greetingName, onOpenClient, on
   useEffect(() => {
     listLeads().then(setLeads).catch(() => setLeads([]))
     supabase
-      ?.from('planned_posts')
+      ?.from('posts')
       .select('id', { count: 'exact', head: true })
       .eq('posted', false)
       .then(({ count }) => setPostsWaiting(count ?? 0))
+    const weekEnd = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10)
     supabase
-      ?.from('follower_log')
-      .select('followers')
-      .order('logged_on', { ascending: false })
-      .limit(1)
-      .then(({ data }) => setFollowers(data?.[0]?.followers ?? null))
+      ?.from('posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('posted', false)
+      .lte('post_on', weekEnd)
+      .then(({ count }) => setThisWeek(count ?? 0))
     fetchEvents()
       .then((all) => setEvents(all.slice(0, 4)))
       .catch((e: Error) => {
@@ -148,10 +149,10 @@ export default function HomeView({ clients, tips, greetingName, onOpenClient, on
       </div>
 
       <section className="st-cards">
-        <Stat label="Photos to post" value={postsWaiting} note="Planned posts waiting" onClick={() => onNavigate('posts')} delay={0.05} />
+        <Stat label="Photos to post" value={postsWaiting} note="Ready in Posts" onClick={() => onNavigate('posts')} delay={0.05} />
         <Stat label="Upcoming shoots" value={upcoming.length} note={upcoming[0]?.date ? `Next: ${shortDate(upcoming[0].date)}` : 'Nothing booked yet'} onClick={() => onNavigate('clients')} delay={0.1} />
         <Stat label="Leads to message" value={leadsToMessage} note={`${followUps} follow-up${followUps === 1 ? '' : 's'} due`} onClick={() => onNavigate('outreach')} delay={0.15} />
-        <Stat label="Followers" value={followers} note={followers === null ? 'Log your count in Outreach' : '@cmk._7'} onClick={() => onNavigate('outreach')} delay={0.2} />
+        <Stat label="Posts this week" value={thisWeek} note="Scheduled in Posts" onClick={() => onNavigate('posts')} delay={0.2} />
       </section>
 
       <section className="st-row">
