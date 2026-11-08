@@ -206,6 +206,23 @@ button.st-item { cursor: pointer; }
 .client-card { background: linear-gradient(180deg, #0f1727, #0b111d); border: 1px solid var(--border-subtle); border-radius: 14px; transition: transform .2s, border-color .2s; }
 .client-card:hover { transform: translateY(-3px); border-color: #3b82f688; }
 .card-name { font: 600 16px var(--serif); }
+.card-thumb { position: relative; overflow: hidden; }
+.card-thumb::after { content: ''; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 30%, #ffffff14 50%, transparent 70%); transform: translateX(-100%); transition: transform .8s ease; }
+.client-card:hover .card-thumb::after { transform: translateX(100%); }
+.card-thumb .thumb-initials { font: 600 22px var(--serif); font-style: normal; color: #cfe2ff; opacity: 1; text-shadow: 0 0 14px #38d6ec66; }
+
+.content-form { background: linear-gradient(180deg, #0f1727, #0b111d); border: 1px solid var(--border-subtle); border-radius: 16px; }
+.results-label { font: 600 12px var(--sans); letter-spacing: .06em; color: var(--text-tertiary); }
+.caption-text, .hashtag-text { font: 400 14px/1.55 var(--sans); color: var(--text-primary); }
+.tips-list li { font: 400 13px var(--sans); color: var(--text-secondary); }
+.summary-label { font: 600 12px var(--sans); letter-spacing: .06em; color: var(--text-tertiary); }
+.summary-value { color: var(--text-primary); }
+.invoice-list { padding: 6px 14px; background: linear-gradient(180deg, #0f1727, #0b111d); border: 1px solid var(--border-subtle); border-radius: 16px; }
+.invoice-list-head { font: 600 11px var(--sans); color: var(--text-tertiary); }
+.empty-serif { font: 600 20px var(--serif); font-style: normal; color: var(--text-secondary); }
+.inv-preview-btn { color: var(--text-primary); background: #ffffff0a; border: 1px solid var(--border-input); border-radius: 8px; }
+.inv-preview-btn:hover { border-color: #3b82f688; }
+.status-badge { border-radius: 999px; }
 .card-price { color: var(--cyan); }
 .flag-pill { color: #fbbf24; background: #fbbf2414; border-color: #fbbf2433; }
 

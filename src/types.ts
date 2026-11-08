@@ -94,10 +94,10 @@ export function paymentStatus(client: Client): PaymentStatus {
 }
 
 const GRADIENTS = [
-  'linear-gradient(135deg,#3B2F21 0%,#211A12 70%)',
-  'linear-gradient(135deg,#33281C 0%,#1D1710 70%)',
-  'linear-gradient(135deg,#2E2A20 0%,#1A1712 70%)',
-  'linear-gradient(135deg,#282217 0%,#171310 70%)',
+  'linear-gradient(135deg,#1e3a8a 0%,#0b111d 75%)',
+  'linear-gradient(135deg,#0e7490 0%,#0b111d 75%)',
+  'linear-gradient(135deg,#1d4ed8 0%,#0b111d 75%)',
+  'linear-gradient(135deg,#312e81 0%,#0b111d 75%)',
 ]
 
 /** Stable-per-client duotone gradient for the placeholder thumbnail. */
