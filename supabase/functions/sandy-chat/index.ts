@@ -2,7 +2,19 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const OWNER = 'cmkcaptures@gmail.com'
-const MODEL = 'llama-3.3-70b-versatile'
+// Groq retires models over time, so pick the best one this key can use right now.
+const PREFERRED = [/gpt-oss-120b/, /kimi-k2/, /llama-4-maverick/, /llama-3.3-70b/, /qwen.*32b/, /70b/, /gpt-oss-20b/]
+let chosen: string | null = null
+async function pickModel(key: string): Promise<string> {
+  if (chosen) return chosen
+  const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } })
+  const ids: string[] = ((await res.json()).data ?? []).map((m: { id: string }) => m.id).filter((id: string) => !/whisper|tts|guard|embed|vision/i.test(id))
+  for (const re of PREFERRED) {
+    const hit = ids.find((id) => re.test(id))
+    if (hit) return (chosen = hit)
+  }
+  return (chosen = ids[0] ?? 'openai/gpt-oss-120b')
+}
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
@@ -113,7 +125,7 @@ Deno.serve(async (req) => {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: MODEL,
+      model: await pickModel(key),
       temperature: 0.6,
       max_tokens: 700,
       tools,
@@ -126,6 +138,7 @@ Deno.serve(async (req) => {
     }),
   })
   const body = await res.json()
+  if (!res.ok) chosen = null
   if (!res.ok) return fail(body.error?.message ?? `Groq returned ${res.status}`, 502)
 
   const msg = body.choices?.[0]?.message ?? {}
