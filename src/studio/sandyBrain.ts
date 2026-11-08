@@ -51,6 +51,7 @@ function daysFromToday(date: Date): number {
 }
 
 interface World {
+  reminders: { id: string; text: string; due_on: string | null }[]
   clients: Client[]
   leads: Lead[]
   events: RadarEvent[]
@@ -60,6 +61,10 @@ interface World {
 
 export function think(w: World): Nudge[] {
   const out: Nudge[] = []
+  const todayIso = new Date().toISOString().slice(0, 10)
+  for (const r of w.reminders)
+    if (r.due_on && r.due_on <= todayIso)
+      out.push({ id: `rem-${r.id}`, level: 'alert', title: r.text, detail: r.due_on < todayIso ? 'Reminder, overdue.' : 'Reminder for today.' })
   const shoots = w.clients
     .map((c) => ({ c, date: parseShootDate(c.shootDate) }))
     .filter((s): s is { c: Client; date: Date } => !!s.date)
@@ -172,7 +177,8 @@ export function useSandyBrain(clients: Client[]): Nudge[] {
   useEffect(() => {
     let alive = true
     async function load() {
-      const [leads, events, posts, galleries] = await Promise.all([
+      const [reminders, leads, events, posts, galleries] = await Promise.all([
+        supabase?.from('sandy_reminders').select('id,text,due_on').eq('done', false).then((r) => r.data ?? []) ?? [],
         listLeads().catch(() => []),
         fetchEvents().catch(() => []),
         supabase?.from('posts').select('photos,post_on,posted,created_at').then((r) => r.data ?? []) ?? [],
@@ -180,6 +186,7 @@ export function useSandyBrain(clients: Client[]): Nudge[] {
       ])
       if (!alive) return
       setRest({
+        reminders: reminders as World['reminders'],
         leads,
         events,
         posts: posts as World['posts'],

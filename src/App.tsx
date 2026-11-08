@@ -18,6 +18,7 @@ import QuoteBuilder from './components/QuoteBuilder'
 import HomeView from './studio/HomeView'
 import Sandy from './studio/Sandy'
 import { useSandyBrain } from './studio/sandyBrain'
+import SandyPage from './studio/SandyPage'
 import type { SandyAnswer } from './studio/Sandy'
 import { Section } from './studio/Sections'
 import EventsList from './studio/EventsList'
@@ -34,7 +35,7 @@ import './App.css'
 import './StudioTheme.css'
 
 
-type View = 'home' | 'clients' | 'outreach' | 'posts' | 'money'
+type View = 'home' | 'sandy' | 'clients' | 'outreach' | 'posts' | 'money'
 
 function App() {
   const galleryMatch = window.location.pathname.match(/^\/g\/([^/]+)/)
@@ -257,6 +258,7 @@ function StudioApp() {
 
   const NAV: { key: View; label: string; icon: string; badge?: number }[] = [
     { key: 'home', label: 'Home', icon: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
+    { key: 'sandy', label: 'Sandy', icon: 'M12 3a8 8 0 0 1 8 8v2a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6v-2a8 8 0 0 1 8-8zM9 11h.01M15 11h.01M9.5 15a3.5 3.5 0 0 0 5 0', badge: nudges.filter((n) => n.level === 'alert').length || undefined },
     { key: 'clients', label: 'Clients', icon: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8', badge: followUpCount || undefined },
     { key: 'outreach', label: 'Outreach', icon: 'M22 2 11 13M22 2l-7 20-4-9-9-4z' },
     { key: 'posts', label: 'Posts', icon: 'M4 4h16v16H4zM4 15l5-5 4 4 3-3 4 4M15 8.5a1.5 1.5 0 1 0 0-.01' },
@@ -313,6 +315,17 @@ function StudioApp() {
           />
         )}
 
+        {view === 'sandy' && (
+          <SandyPage
+            nudges={nudges}
+            answers={sandyAnswers}
+            onGo={setView}
+            onAddClient={(name, shootDate, price, type) =>
+              setClients((prev) => [...prev, normalizeClient({ id: crypto.randomUUID(), name, shootDate, price, type, stage: 'inquiry' })])
+            }
+          />
+        )}
+
         {view === 'clients' && (
           <Section
             title="Clients"
@@ -361,7 +374,7 @@ function StudioApp() {
         )}
       </main>
 
-      <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} />
+      {view !== 'sandy' && <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} />}
 
       {showClientModal && (
         <ClientModal
