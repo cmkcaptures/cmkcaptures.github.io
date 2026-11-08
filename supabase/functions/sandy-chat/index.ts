@@ -95,8 +95,13 @@ Deno.serve(async (req) => {
   const { data: who } = await admin.auth.getUser(jwt)
   if (who.user?.email !== OWNER) return fail('Not allowed.', 403)
 
-  const key = Deno.env.get('GROQ_API_KEY')
-  if (!key) return fail('Sandy has no brain key yet. Add GROQ_API_KEY in Supabase secrets.', 412)
+  const env = Deno.env.toObject()
+  const keyName = Object.keys(env).find((k) => k.trim().toUpperCase() === 'GROQ_API_KEY')
+  const key = keyName ? env[keyName].trim() : ''
+  if (!key) {
+    const near = Object.keys(env).filter((k) => /groq/i.test(k)).map((k) => JSON.stringify(k))
+    return fail(`Sandy has no brain key yet. Add GROQ_API_KEY in Supabase secrets.${near.length ? ' Found: ' + near.join(', ') : ''}`, 412)
+  }
 
   const { messages, context } = await req.json()
   const history = (Array.isArray(messages) ? messages : []).slice(-16).map((m: { role: string; content: string }) => ({
