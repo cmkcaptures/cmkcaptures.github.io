@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Nudge, NudgeGo } from './sandyBrain'
+import type { ChatTurn } from './sandyAI'
 import { addLead } from '../growth'
 
 const store = {
@@ -33,11 +34,13 @@ interface Props {
   answers: SandyAnswer[]
   nudges: Nudge[]
   onGo: (view: NudgeGo) => void
+  ai?: (history: ChatTurn[]) => Promise<string>
 }
 
 const IDLE_LINES = ['Just chilling. Ask me anything.', 'Tap me if you need something.']
 
-export default function Sandy({ tips, urgent: insightUrgent, answers, nudges: allNudges, onGo }: Props) {
+export default function Sandy({ tips, urgent: insightUrgent, answers, nudges: allNudges, onGo, ai }: Props) {
+  const [chat, setChat] = useState<ChatTurn[]>([])
   const [hidden, setHidden] = useState<string[]>(() => store.get('sandy.hidden', []))
   const [ticks, setTicks] = useState<Record<string, string[]>>(() => store.get('sandy.ticks', {}))
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -91,7 +94,7 @@ export default function Sandy({ tips, urgent: insightUrgent, answers, nudges: al
   function say(text: string) {
     setMode('talking')
     setLine(text)
-    window.setTimeout(() => setMode('idle'), 2600)
+    window.setTimeout(() => setMode('idle'), Math.min(6000, 1400 + text.length * 25))
   }
 
   function nextTip() {
@@ -107,10 +110,17 @@ export default function Sandy({ tips, urgent: insightUrgent, answers, nudges: al
     if (!q) return
     setQuestion('')
     setMode('thinking')
-    window.setTimeout(() => {
+    const history: ChatTurn[] = [...chat, { role: 'user', content: q }]
+    const rules = () => {
       const found = answers.find((a) => a.match.test(q))
-      say(found ? found.reply() : "I can't do that one yet. Try \"help\".")
-    }, 500)
+      return found ? found.reply() : "I can't do that one yet. Try \"help\"."
+    }
+    ;(ai ? ai(history) : Promise.reject(new Error('no ai')))
+      .catch(rules)
+      .then((answer) => {
+        setChat([...history, { role: 'assistant' as const, content: answer }].slice(-12))
+        say(answer)
+      })
   }
 
   return (

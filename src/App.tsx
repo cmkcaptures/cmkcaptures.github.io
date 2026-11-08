@@ -19,6 +19,9 @@ import HomeView from './studio/HomeView'
 import Sandy from './studio/Sandy'
 import { useSandyBrain } from './studio/sandyBrain'
 import SandyPage from './studio/SandyPage'
+import { askSandy } from './studio/sandyAI'
+import type { ChatTurn } from './studio/sandyAI'
+import { paymentStatus } from './types'
 import type { SandyAnswer } from './studio/Sandy'
 import { Section } from './studio/Sections'
 import EventsList from './studio/EventsList'
@@ -256,6 +259,23 @@ function StudioApp() {
     },
   ]
 
+  function addClientQuick(name: string, shootDate: string, price: string, type: string) {
+    setClients((prev) => [...prev, normalizeClient({ id: crypto.randomUUID(), name, shootDate, price, type, stage: 'inquiry' })])
+  }
+
+  function sandyAI(history: ChatTurn[]) {
+    const now = new Date()
+    const context = {
+      today: now.toISOString().slice(0, 10),
+      weekday: now.toLocaleDateString('en-GB', { weekday: 'long' }),
+      screen: view,
+      reply_style: 'This is the small floating chat bubble: answer in 1-2 short sentences.',
+      clients: clients.map((c) => ({ name: c.name, stage: c.stage, type: c.type, shoot: c.shootDate, price: c.price, payment: paymentStatus(c) })),
+      todo: nudges.map((n) => ({ level: n.level, title: n.title, detail: n.detail, events: n.events?.map((e) => `${e.name} at ${e.venue}, ${e.date}`) })),
+    }
+    return askSandy(history, context, { addClient: addClientQuick, go: setView })
+  }
+
   const NAV: { key: View; label: string; icon: string; badge?: number }[] = [
     { key: 'home', label: 'Home', icon: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
     { key: 'sandy', label: 'Sandy', icon: 'M12 3a8 8 0 0 1 8 8v2a6 6 0 0 1-6 6h-4a6 6 0 0 1-6-6v-2a8 8 0 0 1 8-8zM9 11h.01M15 11h.01M9.5 15a3.5 3.5 0 0 0 5 0', badge: nudges.filter((n) => n.level === 'alert').length || undefined },
@@ -375,7 +395,7 @@ function StudioApp() {
         )}
       </main>
 
-      {view !== 'sandy' && <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} />}
+      {view !== 'sandy' && <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} ai={sandyAI} />}
 
       {showClientModal && (
         <ClientModal
