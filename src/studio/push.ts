@@ -1,7 +1,6 @@
 // Turns on Sandy's phone alerts (Web Push). The public key is safe to ship.
 import { supabase } from '../supabase'
 
-const VAPID_PUBLIC = 'BPntjo2qnJGGRFnUJ1SpQml1QZXzS4m8xgCmEhns3zW-Lw0HTgk66mNOwhl156fjG7PxBsB6uT3BXfCsUsuM18E'
 
 export type PushState = 'unsupported' | 'needs-install' | 'off' | 'on' | 'blocked'
 
@@ -28,11 +27,13 @@ export async function turnOnPush(): Promise<PushState> {
   if (!supabase) throw new Error('Not connected.')
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') return permission === 'denied' ? 'blocked' : 'off'
+  const { data: keyData, error: keyError } = await supabase.functions.invoke('sandy-push', { body: { publicKey: true } })
+  if (keyError || !keyData?.publicKey) throw new Error('Could not reach Sandy. Is Verify JWT off for sandy-push?')
   const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
   await navigator.serviceWorker.ready
   const sub =
     (await reg.pushManager.getSubscription()) ??
-    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(VAPID_PUBLIC) as BufferSource }))
+    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(keyData.publicKey) as BufferSource }))
   const json = sub.toJSON()
   const { error } = await supabase.from('push_subs').upsert({ endpoint: json.endpoint, sub: json, device: navigator.userAgent.slice(0, 120) })
   if (error) throw error

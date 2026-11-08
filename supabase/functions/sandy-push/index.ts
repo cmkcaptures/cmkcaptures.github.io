@@ -4,7 +4,6 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
 const OWNER = 'cmkcaptures@gmail.com'
-const VAPID_PUBLIC = 'BPntjo2qnJGGRFnUJ1SpQml1QZXzS4m8xgCmEhns3zW-Lw0HTgk66mNOwhl156fjG7PxBsB6uT3BXfCsUsuM18E'
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
@@ -39,9 +38,18 @@ Deno.serve(async (req) => {
     if (who.user?.email !== OWNER) return fail('Not allowed.', 403)
   }
 
-  const priv = Deno.env.get('VAPID_PRIVATE_KEY')?.trim()
-  if (!priv) return fail('Phone alerts need the VAPID_PRIVATE_KEY secret in Supabase.', 412)
-  webpush.setVapidDetails('mailto:cmkcaptures@gmail.com', VAPID_PUBLIC, priv)
+  // Push keys are generated once and kept server-side (app_secrets has no policies).
+  const { data: keys } = await admin.from('app_secrets').select('name,value').in('name', ['vapid_public', 'vapid_private'])
+  let pub = keys?.find((k) => k.name === 'vapid_public')?.value
+  let priv = keys?.find((k) => k.name === 'vapid_private')?.value
+  if (!pub || !priv) {
+    const made = webpush.generateVAPIDKeys()
+    pub = made.publicKey
+    priv = made.privateKey
+    await admin.from('app_secrets').upsert([{ name: 'vapid_public', value: pub }, { name: 'vapid_private', value: priv }])
+  }
+  if (body.publicKey) return Response.json({ publicKey: pub }, { headers: cors })
+  webpush.setVapidDetails('mailto:cmkcaptures@gmail.com', pub, priv)
 
   const today = londonToday()
   const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + DAY).toISOString().slice(0, 10)
