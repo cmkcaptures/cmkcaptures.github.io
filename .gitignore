@@ -25,3 +25,5 @@ dist-ssr
 
 .claude
 public/design-preview
+
+VAPID_PRIVATE_KEY.txt

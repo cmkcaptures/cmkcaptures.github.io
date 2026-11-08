@@ -58,3 +58,10 @@
   .sp-chat { height: 60vh; }
 }
 .sp-brain { padding: 1px 7px; font: 600 10px Inter, sans-serif; font-style: normal; letter-spacing: .04em; text-transform: uppercase; color: #fbbf24; background: #fbbf2414; border-radius: 999px; }
+.sp-card h2 { display: flex; align-items: center; gap: 8px; }
+.sp-push-dot { width: 8px; height: 8px; background: #5f6b80; border-radius: 50%; }
+.sp-push-dot.on { background: #34d399; box-shadow: 0 0 8px #34d399; animation: st-breathe 2.4s ease-in-out infinite; }
+.sp-push-dot.blocked { background: #f87171; }
+.sp-push-text { margin: 0; font-size: 13px; line-height: 1.5; color: #8a97ad; }
+.sp-push-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-push-note { margin: 0; font-size: 12px; color: #38d6ec; }

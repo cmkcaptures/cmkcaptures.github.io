@@ -130,7 +130,7 @@ export default function Portfolio() {
           <h1>
             {portfolio.tagline.split(' ').map((w, i) => (
               <span key={i} style={{ animationDelay: `${0.1 + i * 0.08}s` }}>
-                {w}{' '}
+                {w}
               </span>
             ))}
           </h1>

@@ -10,6 +10,7 @@ import type { Lead } from '../growth'
 import type { Client } from '../types'
 import { paymentStatus } from '../types'
 import { supabase } from '../supabase'
+import PushCard from './PushCard'
 import './SandyPage.css'
 
 interface Msg {
@@ -277,6 +278,7 @@ export default function SandyPage({ clients, nudges, answers, onGo, onAddClient 
         </section>
 
         <aside className="sp-side">
+          <PushCard />
           <section className="sp-card">
             <h2>On her radar</h2>
             {nudges.length === 0 && <p className="st-empty">All clear.</p>}
