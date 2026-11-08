@@ -7,6 +7,8 @@ import { loadInvoices, saveInvoices, loadBusiness, saveBusiness } from './invoic
 import ClientBoard from './components/ClientBoard'
 import ClientModal from './components/ClientModal'
 import InvoicesView from './components/InvoicesView'
+import { buildInvoice } from './autoInvoice'
+import type { AutoKind } from './autoInvoice'
 import InvoiceModal from './components/InvoiceModal'
 import InvoicePreview from './components/InvoicePreview'
 import SettingsModal from './components/SettingsModal'
@@ -130,6 +132,12 @@ function StudioApp() {
   }
 
   // ---- Invoice handlers ----
+  function autoInvoice(client: Client, kind: AutoKind) {
+    const inv = buildInvoice(client, kind, business)
+    setInvoices((prev) => [...prev, inv])
+    setBusiness((b) => ({ ...b, nextInvoiceSeq: b.nextInvoiceSeq + 1 }))
+    setPreviewInvoice(inv)
+  }
   function openNewInvoice() {
     setEditingInvoice(null)
     setShowInvoiceModal(true)
@@ -387,7 +395,7 @@ function StudioApp() {
               {
                 key: 'invoices',
                 label: 'Invoices',
-                content: <InvoicesView invoices={invoices} onNew={openNewInvoice} onEdit={openEditInvoice} onPreview={setPreviewInvoice} />,
+                content: <InvoicesView invoices={invoices} onNew={openNewInvoice} onEdit={openEditInvoice} onPreview={setPreviewInvoice} clients={clients} onAuto={autoInvoice} />,
               },
               { key: 'quotes', label: 'Quotes', content: <QuoteBuilder /> },
             ]}

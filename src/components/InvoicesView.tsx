@@ -1,4 +1,9 @@
 import type { Invoice } from '../invoiceTypes'
+import type { Client } from '../types'
+import { initials, thumbGradient } from '../types'
+import type { AutoKind } from '../autoInvoice'
+import { nextInvoiceFor } from '../autoInvoice'
+import { parseMoney } from '../invoiceTypes'
 import {
   formatMoney,
   formatDate,
@@ -13,9 +18,14 @@ interface Props {
   onNew: () => void
   onEdit: (inv: Invoice) => void
   onPreview: (inv: Invoice) => void
+  clients: Client[]
+  onAuto: (client: Client, kind: AutoKind) => void
 }
 
-export default function InvoicesView({ invoices, onNew, onEdit, onPreview }: Props) {
+export default function InvoicesView({ invoices, onNew, onEdit, onPreview, clients, onAuto }: Props) {
+  const ready = clients
+    .map((c) => ({ c, kind: nextInvoiceFor(c, invoices) }))
+    .filter((r): r is { c: Client; kind: AutoKind } => r.kind !== null)
   const outstanding = invoices
     .filter((i) => i.status !== 'paid')
     .reduce((sum, i) => sum + invoiceBalance(i), 0)
@@ -42,6 +52,40 @@ export default function InvoicesView({ invoices, onNew, onEdit, onPreview }: Pro
           New invoice
         </button>
       </div>
+
+      {ready.length > 0 && (
+        <section className="mn-auto">
+          <header>
+            <span className="mn-auto-spark">✦</span>
+            <div>
+              <h3>Ready to invoice</h3>
+              <p>Built from your client cards: price, 50% deposit and terms filled in. One tap.</p>
+            </div>
+          </header>
+          <div className="mn-auto-list">
+            {ready.map(({ c, kind }, i) => {
+              const total = parseMoney(c.price)
+              const amount = kind === 'deposit' ? total / 2 : total / 2
+              return (
+                <div key={c.id} className="mn-auto-card" style={{ animationDelay: `${i * 0.06}s` }}>
+                  <span className="mn-auto-avatar" style={{ background: thumbGradient(c.id) }}>
+                    {initials(c.name)}
+                  </span>
+                  <span className="mn-auto-text">
+                    <b>{c.name}</b>
+                    <small>
+                      {kind === 'deposit' ? '50% deposit' : 'Balance on delivery'} · {formatMoney(amount)}
+                    </small>
+                  </span>
+                  <button className="btn-brass" onClick={() => onAuto(c, kind)}>
+                    Make it
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {sorted.length === 0 ? (
         <div className="mn-empty">

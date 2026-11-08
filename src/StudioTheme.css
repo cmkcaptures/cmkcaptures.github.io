@@ -369,3 +369,18 @@ button.st-item { cursor: pointer; }
 .invoice-row:hover { transform: translateX(3px); }
 @media (max-width: 860px) { .mn-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .mn-new { min-height: 90px; } }
 .sandy.open .sandy-bubble { max-height: 40vh; overflow-y: auto; white-space: pre-line; }
+
+/* ---------- Auto invoices ---------- */
+.mn-auto { margin-bottom: 18px; padding: 18px; background: linear-gradient(135deg, #0e749022, #0b111d 60%); border: 1px solid #38d6ec33; border-radius: 18px; animation: st-rise .5s ease both; }
+.mn-auto header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.mn-auto h3 { margin: 0; font: 600 16px Sora, Inter, sans-serif; }
+.mn-auto p { margin: 2px 0 0; font-size: 13px; color: #8a97ad; }
+.mn-auto-spark { display: grid; place-items: center; width: 34px; height: 34px; font-size: 16px; color: #05080f; background: #38d6ec; border-radius: 10px; box-shadow: 0 0 18px #38d6ec88; animation: st-breathe 3s ease-in-out infinite; }
+.mn-auto-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.mn-auto-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #070b14; border: 1px solid #ffffff12; border-radius: 14px; animation: st-rise .4s ease both; transition: border-color .2s, transform .2s; }
+.mn-auto-card:hover { border-color: #38d6ec66; transform: translateY(-2px); }
+.mn-auto-avatar { display: grid; flex: none; place-items: center; width: 34px; height: 34px; font: 700 12px Sora, Inter, sans-serif; color: #fff; border-radius: 10px; }
+.mn-auto-text { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.mn-auto-text b { overflow: hidden; font: 600 14px Inter, sans-serif; white-space: nowrap; text-overflow: ellipsis; }
+.mn-auto-text small { font-size: 12px; color: #8a97ad; }
+.mn-auto-card .btn-brass { padding: 7px 12px; font-size: 13px; }
