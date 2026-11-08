@@ -1,5 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
+import type { Nudge, NudgeGo } from './sandyBrain'
+import { addLead } from '../growth'
+
+const store = {
+  get<T>(key: string, fallback: T): T {
+    try {
+      return JSON.parse(localStorage.getItem(key) ?? '') as T
+    } catch {
+      return fallback
+    }
+  },
+  set(key: string, value: unknown) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value))
+    } catch {
+      // Ticks are a convenience; losing them is fine.
+    }
+  },
+}
 
 export type SandyMode = 'idle' | 'thinking' | 'talking' | 'learning' | 'alert'
 
@@ -12,13 +31,44 @@ interface Props {
   tips: string[]
   urgent: boolean
   answers: SandyAnswer[]
+  nudges: Nudge[]
+  onGo: (view: NudgeGo) => void
 }
 
 const IDLE_LINES = ['Just chilling. Ask me anything.', 'Tap me if you need something.']
 
-export default function Sandy({ tips, urgent, answers }: Props) {
+export default function Sandy({ tips, urgent: insightUrgent, answers, nudges: allNudges, onGo }: Props) {
+  const [hidden, setHidden] = useState<string[]>(() => store.get('sandy.hidden', []))
+  const [ticks, setTicks] = useState<Record<string, string[]>>(() => store.get('sandy.ticks', {}))
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [pitched, setPitched] = useState<string[]>([])
+  const nudges = allNudges.filter((n) => !hidden.includes(n.id))
+  const alerts = nudges.filter((n) => n.level === 'alert').length
+  const urgent = insightUrgent || alerts > 0
+
+  function hide(id: string) {
+    const next = [...hidden, id].slice(-200)
+    setHidden(next)
+    store.set('sandy.hidden', next)
+  }
+
+  function tick(id: string, item: string) {
+    const list = ticks[id] ?? []
+    const next = { ...ticks, [id]: list.includes(item) ? list.filter((x) => x !== item) : [...list, item] }
+    setTicks(next)
+    store.set('sandy.ticks', next)
+  }
+
+  async function pitch(name: string, date: string) {
+    setPitched((p) => [...p, name])
+    try {
+      await addLead({ name, kind: 'promoter', handle: '', event_name: name, event_date: date.slice(0, 10) })
+    } catch {
+      setPitched((p) => p.filter((x) => x !== name))
+    }
+  }
   const [mode, setMode] = useState<SandyMode>('idle')
-  const [line, setLine] = useState(tips[0] ?? IDLE_LINES[0])
+  const [line, setLine] = useState(allNudges[0]?.title ?? tips[0] ?? IDLE_LINES[0])
   const [open, setOpen] = useState(false)
   const [question, setQuestion] = useState('')
   const tipIndex = useRef(0)
@@ -45,6 +95,7 @@ export default function Sandy({ tips, urgent, answers }: Props) {
   }
 
   function nextTip() {
+    if (nudges.length) return say(nudges.length === 1 ? 'One thing for you.' : `${nudges.length} things for you. Top one first.`)
     if (tips.length === 0) return say(IDLE_LINES[1])
     tipIndex.current = (tipIndex.current + 1) % tips.length
     say(tips[tipIndex.current])
@@ -65,6 +116,68 @@ export default function Sandy({ tips, urgent, answers }: Props) {
   return (
     <div className={`sandy${open ? ' open' : ''}`}>
       <div className="sandy-talk">
+        {open && (
+          <div className="sandy-list" role="list" aria-label="Sandy's to-do list">
+            {nudges.length === 0 && <p className="sandy-clear">All clear. Nothing needs you right now.</p>}
+            {nudges.map((n, i) => {
+              const done = ticks[n.id] ?? []
+              const isOpen = expanded === n.id
+              return (
+                <div key={n.id} role="listitem" className={`sandy-nudge lvl-${n.level}`} style={{ animationDelay: `${i * 0.05}s` }}>
+                  <button className="sandy-nudge-main" onClick={() => setExpanded(isOpen ? null : n.id)} aria-expanded={isOpen}>
+                    <i className="sandy-dot" />
+                    <span>
+                      <b>{n.title}</b>
+                      <small>{n.detail}</small>
+                    </span>
+                    {n.checklist && (
+                      <em className="sandy-progress">
+                        {done.length}/{n.checklist.length}
+                      </em>
+                    )}
+                  </button>
+                  {isOpen && (
+                    <div className="sandy-nudge-body">
+                      {n.checklist?.map((item) => (
+                        <label key={item} className={done.includes(item) ? 'done' : ''}>
+                          <input type="checkbox" checked={done.includes(item)} onChange={() => tick(n.id, item)} />
+                          {item}
+                        </label>
+                      ))}
+                      {n.events?.map((e) => (
+                        <div key={e.id} className="sandy-event">
+                          <a href={e.link} target="_blank" rel="noreferrer">
+                            <b>{e.name}</b>
+                            <small>
+                              {e.venue} · {e.date}
+                            </small>
+                          </a>
+                          <button onClick={() => pitch(e.name, e.date)} disabled={pitched.includes(e.name)}>
+                            {pitched.includes(e.name) ? 'Added ✓' : 'Pitch'}
+                          </button>
+                        </div>
+                      ))}
+                      <div className="sandy-nudge-actions">
+                        {n.go && (
+                          <button
+                            className="go"
+                            onClick={() => {
+                              onGo(n.go!)
+                              setOpen(false)
+                            }}
+                          >
+                            {n.goLabel ?? 'Open'} →
+                          </button>
+                        )}
+                        <button onClick={() => hide(n.id)}>{n.checklist && done.length === n.checklist.length ? 'Done ✓' : 'Hide'}</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
         <div className="sandy-bubble" key={line}>
           {line}
         </div>
@@ -89,6 +202,7 @@ export default function Sandy({ tips, urgent, answers }: Props) {
           if (!open) nextTip()
         }}
       >
+        {!open && nudges.length > 0 && <span className={`sandy-badge${alerts ? ' hot' : ''}`}>{nudges.length}</span>}
         <svg viewBox="0 0 100 100" aria-hidden="true">
           <defs>
             <linearGradient id="sandyShell" x1="0" y1="0" x2="0" y2="1">

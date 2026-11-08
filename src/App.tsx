@@ -17,6 +17,7 @@ import ReviewsManager from './components/ReviewsManager'
 import QuoteBuilder from './components/QuoteBuilder'
 import HomeView from './studio/HomeView'
 import Sandy from './studio/Sandy'
+import { useSandyBrain } from './studio/sandyBrain'
 import type { SandyAnswer } from './studio/Sandy'
 import { Section } from './studio/Sections'
 import EventsList from './studio/EventsList'
@@ -183,6 +184,7 @@ function StudioApp() {
   }
 
   const followUpCount = clients.filter(needsFollowUp).length
+  const nudges = useSandyBrain(clients)
 
   const insights = generateInsights(clients, invoices, business)
   const tips = insights.map((i) => i.message)
@@ -191,7 +193,25 @@ function StudioApp() {
   const sandyAnswers: SandyAnswer[] = [
     {
       match: /help|what can/i,
-      reply: () => 'Try: "next shoot", "who owes", "deposits", "follow ups", "to do", or "new client".',
+      reply: () => 'Try: "plan my week", "events", "what to post", "next shoot", "who owes", "deposits", "follow ups", or "new client".',
+    },
+    {
+      match: /plan|week|quiet/i,
+      reply: () => (nudges.length ? nudges.slice(0, 3).map((n) => n.title).join(' · ') : 'Your week looks sorted.'),
+    },
+    {
+      match: /event|gig|party|club/i,
+      reply: () => {
+        const ev = nudges.find((n) => n.events?.length)?.events ?? []
+        return ev.length ? `Worth a pitch: ${ev.map((e) => e.name).join(', ')}.` : 'Opening Events.'
+      },
+    },
+    {
+      match: /post|instagram|insta|ig\b/i,
+      reply: () => {
+        setView('posts')
+        return nudges.find((n) => n.go === 'posts')?.title ?? 'Opening Posts.'
+      },
     },
     {
       match: /next|upcoming|shoot/i,
@@ -342,7 +362,7 @@ function StudioApp() {
         )}
       </main>
 
-      <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} />
+      <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} />
 
       {showClientModal && (
         <ClientModal
