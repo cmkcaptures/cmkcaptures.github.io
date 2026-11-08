@@ -5,7 +5,6 @@ import {
   invoiceBalance,
   invoiceSubtotal,
   isOverdue,
-  parseMoney,
   STATUS_LABELS,
 } from '../invoiceTypes'
 
@@ -20,36 +19,48 @@ export default function InvoicesView({ invoices, onNew, onEdit, onPreview }: Pro
   const outstanding = invoices
     .filter((i) => i.status !== 'paid')
     .reduce((sum, i) => sum + invoiceBalance(i), 0)
-  const received = invoices.reduce((sum, i) => sum + parseMoney(i.amountPaid), 0)
   const overdueCount = invoices.filter(isOverdue).length
 
   const sorted = [...invoices].sort((a, b) => b.issueDate.localeCompare(a.issueDate))
 
   return (
     <div className="invoices-view">
-      <div className="summary-row">
-        <div className="summary-card">
-          <span className="summary-label">Outstanding</span>
-          <span className="summary-value brass">{formatMoney(outstanding)}</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Received</span>
-          <span className="summary-value">{formatMoney(received)}</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Overdue</span>
-          <span className={`summary-value${overdueCount > 0 ? ' alert' : ''}`}>{overdueCount}</span>
-        </div>
-        <div className="summary-spacer" />
-        <button className="btn-brass" onClick={onNew}>
-          + New invoice
+      <div className="mn-stats">
+        {[
+          { label: 'Waiting on', value: formatMoney(outstanding), note: `${invoices.filter((i) => i.status !== 'paid').length} open`, tone: 'cyan' },
+          { label: 'Overdue', value: String(overdueCount), note: overdueCount ? 'Chase these first' : 'Nothing late', tone: overdueCount ? 'warn' : 'calm' },
+          { label: 'Invoices', value: String(invoices.length), note: `${invoices.filter((i) => i.status === 'paid').length} settled`, tone: 'blue' },
+        ].map((s, i) => (
+          <div key={s.label} className={`mn-stat tone-${s.tone}`} style={{ animationDelay: `${i * 0.06}s` }}>
+            <span>{s.label}</span>
+            <b>{s.value}</b>
+            <small>{s.note}</small>
+          </div>
+        ))}
+        <button className="mn-new" onClick={onNew}>
+          <b>+</b>
+          New invoice
         </button>
       </div>
 
       {sorted.length === 0 ? (
-        <div className="invoices-empty">
-          <p className="empty-serif">No invoices yet</p>
-          <p className="empty-hint-sub">Create one from a client, or start blank.</p>
+        <div className="mn-empty">
+          <h3>No invoices yet</h3>
+          <p>Three steps and it's sent:</p>
+          <ol>
+            <li>
+              <b>1</b>Pick the client
+            </li>
+            <li>
+              <b>2</b>Check the price and 50% deposit
+            </li>
+            <li>
+              <b>3</b>Send the PDF
+            </li>
+          </ol>
+          <button className="btn-brass" onClick={onNew}>
+            Make the first one
+          </button>
         </div>
       ) : (
         <div className="invoice-list">

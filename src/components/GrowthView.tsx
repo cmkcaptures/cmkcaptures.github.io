@@ -13,6 +13,8 @@ import {
   updateLead,
 } from '../growth'
 import { formatDate } from '../invoiceTypes'
+import { fetchEvents, initialsOf } from '../studio/events'
+import type { RadarEvent } from '../studio/events'
 import './Growth.css'
 
 type Filter = LeadStatus | 'all' | 'due' | 'watching'
@@ -28,13 +30,29 @@ export default function GrowthView({ onBooked }: { onBooked: (lead: Lead) => voi
   const [form, setForm] = useState(EMPTY)
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
+  const [picks, setPicks] = useState<RadarEvent[]>([])
 
   useEffect(() => {
     listLeads()
       .then(setLeads)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
+    fetchEvents()
+      .then((all) => setPicks(all.slice(0, 4)))
+      .catch(() => {})
   }, [])
+
+  async function pitchEvent(e: RadarEvent) {
+    setError('')
+    try {
+      const lead = await addLead({ name: e.venue || e.name, kind: 'promoter', handle: '', event_name: e.name, event_date: e.date.slice(0, 10) })
+      setLeads((prev) => [lead, ...prev])
+      setSelectedId(lead.id)
+      setPicks((p) => p.filter((x) => x.id !== e.id))
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
 
   const dueCount = leads.filter(isFollowUpDue).length
   const shown = leads.filter((l) => {
@@ -99,12 +117,31 @@ export default function GrowthView({ onBooked }: { onBooked: (lead: Lead) => voi
   const filters: { key: Filter; label: string }[] = [
     { key: 'all', label: `All ${leads.length}` },
     { key: 'due', label: `Follow up ${dueCount}` },
-    { key: 'watching', label: 'Watchlist' },
-    ...LEAD_STATUSES,
+    { key: 'watching', label: '★ Watchlist' },
+    { key: 'passed', label: 'Passed' },
   ]
+  const funnel = LEAD_STATUSES.filter((s) => s.key !== 'passed')
+  const maxStage = Math.max(1, ...funnel.map((s) => leads.filter((l) => l.status === s.key).length))
 
   return (
     <div className="gr">
+      <div className="or-funnel">
+        {funnel.map((s, i) => {
+          const count = leads.filter((l) => l.status === s.key).length
+          return (
+            <button
+              key={s.key}
+              className={`or-stage or-${s.key}${filter === s.key ? ' on' : ''}`}
+              onClick={() => setFilter(filter === s.key ? 'all' : s.key)}
+              style={{ animationDelay: `${i * 0.06}s` }}
+            >
+              <b>{count}</b>
+              <span>{s.label}</span>
+              <i style={{ height: `${18 + (count / maxStage) * 42}px` }} />
+            </button>
+          )
+        })}
+      </div>
       <div className="gr-top">
         <div className="gr-filters">
           {filters.map((f) => (
@@ -164,7 +201,35 @@ export default function GrowthView({ onBooked }: { onBooked: (lead: Lead) => voi
         </form>
       )}
 
-      <div className="gr-main">
+      {!loading && leads.length === 0 && !adding && (
+        <div className="or-empty">
+          <div>
+            <h3>Start your list</h3>
+            <p>Pitch a night that's coming up, or add a promoter you already know.</p>
+            <button className="btn-brass" onClick={() => setAdding(true)}>
+              + Add someone
+            </button>
+          </div>
+          <div className="or-picks">
+            {picks.map((e, i) => (
+              <div key={e.id} className="or-pick" style={{ animationDelay: `${i * 0.07}s` }}>
+                <span className="st-avatar">{initialsOf(e.name)}</span>
+                <span className="or-pick-text">
+                  <b>{e.name}</b>
+                  <small>
+                    {e.venue} · {e.date}
+                  </small>
+                </span>
+                <button className="st-ghost" onClick={() => pitchEvent(e)}>
+                  Pitch
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="gr-main" hidden={!loading && leads.length === 0}>
         <section className="gr-list">
           {loading && <p className="gr-empty">Loading…</p>}
           {!loading && shown.length === 0 && (
@@ -178,6 +243,7 @@ export default function GrowthView({ onBooked }: { onBooked: (lead: Lead) => voi
               className={`gr-row${selected?.id === l.id ? ' selected' : ''}`}
               onClick={() => setSelectedId(l.id)}
             >
+              <span className={`or-avatar k-${l.kind}`}>{initialsOf(l.name)}</span>
               <span className="gr-row-name">
                 {l.watching && '★ '}
                 {l.name}

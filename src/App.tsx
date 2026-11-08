@@ -33,7 +33,6 @@ import { listSentGalleries } from './galleryApi'
 import './App.css'
 import './StudioTheme.css'
 
-const SHOW_THUMBS = true
 
 type View = 'home' | 'clients' | 'outreach' | 'posts' | 'money'
 
@@ -115,6 +114,11 @@ function StudioApp() {
       return exists ? prev.map((c) => (c.id === client.id ? client : c)) : [...prev, client]
     })
     setShowClientModal(false)
+  }
+  function moveClient(client: Client, stage: Client['stage']) {
+    const changes: Partial<Client> = { stage, lastUpdated: new Date().toISOString() }
+    if (stage === 'paid') Object.assign(changes, { fullyPaid: true, depositPaid: true })
+    setClients((prev) => prev.map((c) => (c.id === client.id ? { ...c, ...changes } : c)))
   }
   function handleDeleteClient(id: string) {
     setClients((prev) => prev.filter((c) => c.id !== id))
@@ -319,7 +323,7 @@ function StudioApp() {
               </button>
             }
             tabs={[
-              { key: 'board', label: 'Pipeline', content: <ClientBoard clients={clients} showThumbs={SHOW_THUMBS} onCardClick={openEditClient} /> },
+              { key: 'board', label: 'Pipeline', content: <ClientBoard clients={clients} onCardClick={openEditClient} onMove={moveClient} /> },
               { key: 'bookings', label: 'Website bookings', content: <BookingsInbox onAdd={addClientFromBooking} /> },
               { key: 'reviews', label: 'Reviews', content: <ReviewsManager /> },
             ]}
@@ -345,11 +349,6 @@ function StudioApp() {
           <Section
             title="Money"
             subtitle="Quotes and invoices."
-            action={
-              <button className="btn-brass" onClick={openNewInvoice}>
-                + New invoice
-              </button>
-            }
             tabs={[
               {
                 key: 'invoices',
