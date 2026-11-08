@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Studio Sample</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #05080f;
+    --panel: #0b111d;
+    --panel-2: #0f1727;
+    --line: #ffffff12;
+    --line-2: #ffffff22;
+    --text: #e8eef9;
+    --muted: #8a97ad;
+    --blue: #3b82f6;
+    --cyan: #38d6ec;
+    --glow: #3b82f655;
+    --display: Sora, Inter, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: Inter, system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(900px 500px at 85% -10%, #1d4ed833, transparent 60%),
+      radial-gradient(700px 400px at -10% 110%, #0891b222, transparent 60%),
+      var(--bg);
+    overflow-x: hidden;
+  }
+  .grid-bg {
+    position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(#ffffff06 1px, transparent 1px), linear-gradient(90deg, #ffffff06 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
+  }
+  .app { position: relative; display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  nav {
+    padding: 22px 14px; border-right: 1px solid var(--line);
+    background: #070b14cc; backdrop-filter: blur(10px);
+  }
+  .logo { display: flex; align-items: center; gap: 10px; margin: 0 8px 28px; font-weight: 700; letter-spacing: 0.02em; }
+  .logo i { width: 10px; height: 10px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+  nav a {
+    position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 4px;
+    color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 10px;
+    transition: color .2s, background .2s;
+  }
+  nav a:hover { color: var(--text); background: #ffffff08; }
+  nav a.on { color: var(--text); background: linear-gradient(90deg, #3b82f622, transparent); }
+  nav a.on::before { content: ''; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--blue); box-shadow: 0 0 10px var(--blue); }
+  main { padding: 32px 40px 120px; max-width: 1200px; }
+  header.top { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 28px; animation: rise .6s ease both; }
+  h1 { margin: 0; font: 600 32px var(--display); letter-spacing: -0.03em; }
+  .value, .panel h2, .logo { font-family: var(--display); }
+  .aurora { position: fixed; inset: -20%; pointer-events: none; filter: blur(80px); opacity: .55; }
+  .aurora i { position: absolute; width: 40vw; height: 40vw; border-radius: 50%; }
+  .aurora i:nth-child(1) { background: #1d4ed8; left: 55%; top: 0; animation: drift1 22s ease-in-out infinite alternate; }
+  .aurora i:nth-child(2) { background: #0891b2; left: 5%; top: 55%; animation: drift2 26s ease-in-out infinite alternate; }
+  .aurora i:nth-child(3) { background: #312e81; left: 35%; top: 30%; width: 25vw; height: 25vw; animation: drift1 30s ease-in-out infinite alternate-reverse; }
+  @keyframes drift1 { to { transform: translate(-18vw, 14vh) scale(1.2); } }
+  @keyframes drift2 { to { transform: translate(20vw, -16vh) scale(.85); } }
+  .ticker { position: relative; display: flex; align-items: center; gap: 12px; height: 40px; margin: -8px 0 22px; padding: 0 14px; overflow: hidden; border-radius: 12px; background: #0b111dcc; border: 1px solid var(--line); animation: rise .6s ease both; }
+  .live { display: flex; align-items: center; gap: 8px; flex: none; font: 600 11px Inter, sans-serif; letter-spacing: .08em; color: var(--cyan); }
+  .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); animation: ping 1.8s infinite; }
+  @keyframes ping { 0% { box-shadow: 0 0 0 0 #38d6ec88; } 70%, 100% { box-shadow: 0 0 0 8px #38d6ec00; } }
+  .ticker-text { position: relative; flex: 1; height: 40px; overflow: hidden; font-size: 13px; }
+  .ticker-text span { position: absolute; inset: 0; display: flex; align-items: center; gap: 4px; animation: tick .5s ease both; white-space: nowrap; overflow: hidden; }
+  .ticker-text b { color: var(--cyan); font-weight: 600; }
+  @keyframes tick { from { opacity: 0; transform: translateY(14px); } }
+  .ticker-dots { display: flex; gap: 4px; flex: none; }
+  .ticker-dots b { width: 14px; height: 3px; border-radius: 3px; background: #ffffff1a; transition: background .3s; }
+  .ticker-dots b.on { background: var(--blue); }
+  .spark { position: relative; display: block; width: 100%; height: 34px; margin-top: 10px; overflow: visible; }
+  .spark path { fill: none; stroke: url(#sparkline); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 300; stroke-dashoffset: 300; animation: draw 1.6s .3s ease forwards; }
+  .spark .dot { fill: var(--cyan); animation: pulse 2s infinite; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .count { display: block; margin-top: 2px; font: 600 12px Inter, sans-serif; font-variant-numeric: tabular-nums; color: var(--cyan); }
+  .btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border: 1px solid #93c5fd55; border-radius: 12px; background: linear-gradient(135deg, #2563eb, #0ea5e9); }
+  .btn::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(90deg, transparent, #ffffff55, transparent); transform: skewX(-20deg); animation: shine 4s ease-in-out infinite; }
+  @keyframes shine { 0%, 70% { left: -60%; } 100% { left: 130%; } }
+  .btn .plus { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: #ffffff26; font-size: 14px; }
+  .btn:active { transform: scale(.97); }
+  .ghost { position: relative; overflow: hidden; padding: 7px 12px; font: 600 12px Inter, sans-serif; color: var(--text); background: #ffffff0a; border: 1px solid var(--line-2); border-radius: 10px; cursor: pointer; transition: background .2s, border-color .2s, transform .15s; }
+  .ghost:hover { background: #3b82f61f; border-color: #3b82f688; transform: translateY(-1px); }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .panel-head h2 { margin: 0; }
+  .ripple { position: absolute; border-radius: 50%; transform: scale(0); background: #ffffff40; animation: ripple .6s ease-out; pointer-events: none; }
+  @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+  .sub { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+  .btn {
+    padding: 10px 18px; font: 600 14px Inter, sans-serif; color: #fff; border: 0; border-radius: 10px; cursor: pointer;
+    background: linear-gradient(135deg, var(--blue), #2563eb); box-shadow: 0 6px 20px -6px var(--blue);
+    transition: transform .15s, box-shadow .2s;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px -6px var(--blue); }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .card {
+    position: relative; padding: 18px; border-radius: 16px; overflow: hidden; cursor: pointer;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line);
+    transition: transform .25s ease, border-color .25s;
+    animation: rise .6s ease both;
+  }
+  .card::before {
+    content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity .25s;
+    background: radial-gradient(260px circle at var(--x, 50%) var(--y, 50%), #3b82f626, transparent 60%);
+  }
+  .card:hover { transform: translateY(-3px); border-color: var(--line-2); }
+  .card:hover::before { opacity: 1; }
+  .label { position: relative; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .value { position: relative; margin-top: 10px; font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+  .trend { position: relative; margin-top: 6px; font-size: 12px; color: var(--cyan); }
+  .row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; }
+  .panel { padding: 20px; border-radius: 16px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); animation: rise .7s ease both; }
+  .panel h2 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
+  .item {
+    display: flex; align-items: center; gap: 12px; padding: 12px; margin: 0 -8px; border-radius: 12px; cursor: pointer;
+    transition: background .2s, transform .2s;
+  }
+  .item:hover { background: #ffffff07; transform: translateX(4px); }
+  .avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; font-size: 13px; font-weight: 700; color: #cfe2ff; background: linear-gradient(135deg, #1e3a8a, #0e7490); }
+  .item b { display: block; font-size: 14px; font-weight: 600; }
+  .item small { color: var(--muted); font-size: 12px; }
+  .pill { margin-left: auto; padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 999px; color: var(--cyan); background: #38d6ec14; border: 1px solid #38d6ec33; }
+  .pill.warn { color: #fbbf24; background: #fbbf2414; border-color: #fbbf2433; }
+  .bar { height: 6px; margin-top: 16px; border-radius: 6px; background: #ffffff0d; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, var(--blue), var(--cyan)); transition: width 1.4s cubic-bezier(.2,.8,.2,1); }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+  /* Sandy */
+  .sandy { position: fixed; right: 26px; bottom: 22px; display: flex; align-items: end; gap: 12px; z-index: 10; }
+  .bubble {
+    max-width: 260px; padding: 12px 14px; font-size: 13px; line-height: 1.45; border-radius: 14px 14px 4px 14px;
+    background: #0f1727ee; border: 1px solid #38d6ec33; box-shadow: 0 10px 30px -10px #000;
+    animation: pop .35s ease both;
+  }
+  .bubble b { color: var(--cyan); }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+  .bot { position: relative; width: 92px; height: 92px; cursor: pointer; }
+  .bot svg { width: 100%; height: 100%; overflow: visible; animation: float 4s ease-in-out infinite; }
+  .bot::after {
+    content: ''; position: absolute; inset: 6px; border-radius: 50%; z-index: -1;
+    background: radial-gradient(circle, #38d6ec55, transparent 70%); filter: blur(8px);
+    animation: breathe 4s ease-in-out infinite;
+  }
+  @keyframes float { 50% { transform: translateY(-5px); } }
+  @keyframes breathe { 50% { opacity: .5; transform: scale(.92); } }
+  .eye { transform-box: fill-box; transform-origin: center; animation: blink 5s infinite; }
+  @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+  .mouth { transition: d .3s; }
+  .dots { opacity: 0; }
+  .scan { opacity: 0; }
+  .mode-thinking .eye { transform: translateY(-3px); animation: none; }
+  .mode-thinking .dots { opacity: 1; }
+  .mode-thinking .dots circle { animation: dot 1.2s infinite; }
+  .mode-thinking .dots circle:nth-child(2) { animation-delay: .2s; }
+  .mode-thinking .dots circle:nth-child(3) { animation-delay: .4s; }
+  @keyframes dot { 50% { opacity: .2; transform: translateY(-3px); } }
+  .mode-talking .mouth { animation: talk .28s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+  @keyframes talk { to { transform: scaleY(2.2); } }
+  .mode-learning .scan { opacity: 1; animation: scan 1.6s ease-in-out infinite; }
+  @keyframes scan { 0%, 100% { transform: translateY(-10px); } 50% { transform: translateY(12px); } }
+  .mode-alert::after { background: radial-gradient(circle, #fbbf2466, transparent 70%); animation: breathe .9s ease-in-out infinite; }
+  .mode-alert .eye { fill: #fde68a; }
+  .modes { display: flex; gap: 6px; margin-top: 8px; }
+  .modes button { padding: 4px 8px; font: 600 11px Inter, sans-serif; color: var(--muted); background: #ffffff08; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+  .modes button.on { color: #05080f; background: var(--cyan); }
+
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    nav { display: flex; overflow-x: auto; padding: 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .logo { margin: 0 16px 0 4px; }
+    nav a { flex: none; margin: 0; }
+    nav a.on::before { display: none; }
+    main { padding: 20px 16px 150px; }
+    .cards { grid-template-columns: 1fr 1fr; }
+    .row { grid-template-columns: 1fr; }
+    .bubble { max-width: 200px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="aurora"><i></i><i></i><i></i></div>
+<div class="grid-bg"></div>
+<div class="app">
+  <nav>
+    <div class="logo"><i></i>PhotoFlow</div>
+    <a class="on" href="#">Home</a>
+    <a href="#">Clients</a>
+    <a href="#">Money</a>
+    <a href="#">Growth</a>
+    <a href="#">Content</a>
+  </nav>
+  <main>
+    <header class="top">
+      <div>
+        <h1>Good evening</h1>
+        <p class="sub">2 things need you today.</p>
+      </div>
+      <button class="btn"><span class="plus">+</span>New client</button>
+    </header>
+
+    <div class="ticker">
+      <span class="live"><i></i>LIVE</span>
+      <div class="ticker-text" id="ticker"></div>
+      <div class="ticker-dots" id="tickerDots"></div>
+    </div>
+    <svg width="0" height="0" style="position:absolute"><defs><linearGradient id="sparkline" x1="0" x2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#38d6ec"/></linearGradient></defs></svg>
+    <section class="cards">
+      <div class="card" style="animation-delay:.05s"><div class="label">Photos to post</div><div class="value" data-count="12">0</div><div class="trend">From Echelon</div><svg class="spark" viewBox="0 0 120 34" data-spark></svg></div>
+      <div class="card" style="animation-delay:.1s"><div class="label">Upcoming shoots</div><div class="value" data-count="3">0</div><div class="trend">Next: Friday</div><svg class="spark" viewBox="0 0 120 34" data-spark></svg></div>
+      <div class="card" style="animation-delay:.15s"><div class="label">Leads to message</div><div class="value" data-count="5">0</div><div class="trend">2 follow-ups due</div><svg class="spark" viewBox="0 0 120 34" data-spark></svg></div>
+      <div class="card" style="animation-delay:.2s"><div class="label">Followers</div><div class="value" data-count="1240">0</div><div class="trend">↑ 36 this week</div><svg class="spark" viewBox="0 0 120 34" data-spark></svg></div>
+    </section>
+
+    <section class="row">
+      <div class="panel" style="animation-delay:.25s">
+        <div class="panel-head"><h2>Up next</h2><button class="ghost">View all</button></div>
+        <div class="item"><div class="avatar">HE</div><div><b>Hurricane Events</b><small>Club night · Fri 14 Nov</small><span class="count" data-until="2026-11-14T22:00">--</span></div><span class="pill">Booked</span></div>
+        <div class="item"><div class="avatar">QA</div><div><b>Qudus Ade</b><small>Portrait · Sun 16 Nov</small><span class="count" data-until="2026-11-16T14:00">--</span></div><span class="pill warn">Deposit due</span></div>
+        <div class="item"><div class="avatar">EF</div><div><b>Echelon Futures</b><small>Gallery · edit by Tue</small><span class="count" data-until="2026-11-11T12:00">--</span></div><span class="pill">Editing</span></div>
+      </div>
+      <div class="panel" style="animation-delay:.3s">
+        <div class="panel-head"><h2>Sandy&rsquo;s picks</h2><button class="ghost">Refresh</button></div>
+        <div class="item"><div class="avatar">XO</div><div><b>MOTION @ XOYO</b><small>Mon · Shoreditch</small></div><span class="pill">Pitch</span></div>
+        <div class="item"><div class="avatar">MS</div><div><b>Milkshake, Ministry of Sound</b><small>Tue · Elephant & Castle</small></div><span class="pill">Pitch</span></div>
+        <div class="item"><div class="avatar">ES</div><div><b>R&R at Escape</b><small>Sun · Soho</small></div><span class="pill">Pitch</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="sandy">
+  <div>
+    <div class="bubble" id="bubble">Hey, I'm <b>Sandy</b>. Tap me to see my moods.</div>
+    <div class="modes" id="modes"></div>
+  </div>
+  <div class="bot" id="bot" title="Sandy">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ff0ff"/><stop offset="1" stop-color="#1fb6cc"/></linearGradient>
+        <linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b2236"/><stop offset="1" stop-color="#05121f"/></linearGradient>
+      </defs>
+      <circle cx="50" cy="48" r="46" fill="none" stroke="#38d6ec44" stroke-width="1.5"/>
+      <path d="M26 92 Q50 74 74 92" fill="url(#shell)" opacity=".85"/>
+      <rect x="15" y="40" width="10" height="20" rx="5" fill="#25c3d8"/>
+      <rect x="75" y="40" width="10" height="20" rx="5" fill="#25c3d8"/>
+      <ellipse cx="50" cy="48" rx="28" ry="27" fill="url(#shell)"/>
+      <ellipse cx="50" cy="51" rx="21" ry="17" fill="url(#face)"/>
+      <g class="scan"><rect x="30" y="49" width="40" height="2" rx="1" fill="#7ff0ff" opacity=".7"/></g>
+      <ellipse class="eye" cx="42" cy="49" rx="3.6" ry="4.2" fill="#d6fbff"/>
+      <ellipse class="eye" cx="58" cy="49" rx="3.6" ry="4.2" fill="#d6fbff"/>
+      <path class="mouth" d="M44 58 Q50 62 56 58" stroke="#d6fbff" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <g class="dots"><circle cx="76" cy="20" r="2.4" fill="#7ff0ff"/><circle cx="83" cy="15" r="2.4" fill="#7ff0ff"/><circle cx="90" cy="10" r="2.4" fill="#7ff0ff"/></g>
+      <ellipse cx="40" cy="30" rx="8" ry="3.5" fill="#ffffff" opacity=".35"/>
+    </svg>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.card').forEach((card) => {
+    card.addEventListener('pointermove', (e) => {
+      const r = card.getBoundingClientRect()
+      card.style.setProperty('--x', `${e.clientX - r.left}px`)
+      card.style.setProperty('--y', `${e.clientY - r.top}px`)
+    })
+  })
+
+  document.querySelectorAll('[data-count]').forEach((el) => {
+    const end = Number(el.dataset.count)
+    const prefix = el.dataset.prefix || ''
+    const start = performance.now()
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / 1200)
+      const eased = 1 - Math.pow(1 - t, 3)
+      el.textContent = prefix + Math.round(end * eased).toLocaleString('en-GB')
+      if (t < 1) requestAnimationFrame(step)
+    }
+    requestAnimationFrame(step)
+  })
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('[data-width]').forEach((el) => { el.style.width = el.dataset.width })
+  })
+
+  const TIPS = [
+    'Hurricane Events shoot in <b>6 days</b>. Charge your V1 batteries.',
+    '<b>12 photos</b> from Echelon are waiting to be posted.',
+    'MOTION @ XOYO is on <b>Monday</b>. Good night to pitch.',
+    'Qudus still owes the <b>deposit</b>.',
+    'Your last carousel got <b>3 reposts</b>. Post another this week.',
+  ]
+  const ticker = document.getElementById('ticker')
+  const tickerDots = document.getElementById('tickerDots')
+  TIPS.forEach(() => tickerDots.appendChild(document.createElement('b')))
+  let tip = 0
+  function nextTip() {
+    ticker.innerHTML = '<span>' + TIPS[tip] + '</span>'
+    ;[...tickerDots.children].forEach((d, i) => d.classList.toggle('on', i === tip))
+    tip = (tip + 1) % TIPS.length
+  }
+  nextTip()
+  setInterval(nextTip, 4000)
+
+  document.querySelectorAll('[data-spark]').forEach((svg) => {
+    const pts = Array.from({ length: 9 }, (_, i) => [i * 15, 8 + Math.random() * 20])
+    pts[8][1] = 6
+    const d = pts.map((pt, i) => (i ? 'L' : 'M') + pt[0] + ' ' + pt[1].toFixed(1)).join(' ')
+    svg.innerHTML = '<path d="' + d + '"/><circle class="dot" cx="120" cy="6" r="3"/>'
+  })
+
+  function tickCountdowns() {
+    document.querySelectorAll('[data-until]').forEach((el) => {
+      let s = Math.max(0, Math.floor((new Date(el.dataset.until) - Date.now()) / 1000))
+      const d = Math.floor(s / 86400); s %= 86400
+      const h = Math.floor(s / 3600); s %= 3600
+      const m = Math.floor(s / 60); s %= 60
+      el.textContent = 'in ' + (d ? d + 'd ' : '') + h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's'
+    })
+  }
+  tickCountdowns()
+  setInterval(tickCountdowns, 1000)
+
+  document.querySelectorAll('.btn, .ghost').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      const r = b.getBoundingClientRect()
+      const size = Math.max(r.width, r.height)
+      const dot = document.createElement('span')
+      dot.className = 'ripple'
+      dot.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - r.left - size / 2) + 'px;top:' + (e.clientY - r.top - size / 2) + 'px'
+      b.appendChild(dot)
+      setTimeout(() => dot.remove(), 600)
+    })
+  })
+
+  setInterval(() => {
+    if (current === 'idle') setMode(['thinking', 'learning'][Math.floor(Math.random() * 2)])
+    else if (current === 'thinking' || current === 'learning') setMode('idle')
+  }, 7000)
+
+  const MODES = {
+    idle: 'Just chilling. Shout if you need me.',
+    thinking: 'Checking your week…',
+    talking: 'Qudus still owes the deposit. Want me to draft a nudge?',
+    learning: 'Learning which posts get you the most saves…',
+    alert: 'Heads up: Echelon edits are due in 22 hours.',
+  }
+  const bot = document.getElementById('bot')
+  const bubble = document.getElementById('bubble')
+  const modes = document.getElementById('modes')
+  let current = 'idle'
+  function setMode(mode) {
+    current = mode
+    bot.className = `bot mode-${mode}`
+    bubble.textContent = MODES[mode]
+    bubble.style.animation = 'none'
+    void bubble.offsetWidth
+    bubble.style.animation = ''
+    ;[...modes.children].forEach((b) => b.classList.toggle('on', b.dataset.mode === mode))
+  }
+  Object.keys(MODES).forEach((mode) => {
+    const b = document.createElement('button')
+    b.textContent = mode
+    b.dataset.mode = mode
+    b.onclick = () => setMode(mode)
+    modes.appendChild(b)
+  })
+  bot.onclick = () => {
+    const keys = Object.keys(MODES)
+    setMode(keys[(keys.indexOf(current) + 1) % keys.length])
+  }
+  setTimeout(() => setMode('idle'), 2500)
+</script>
+</body>
+</html>

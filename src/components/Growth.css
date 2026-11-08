@@ -1,36 +1,36 @@
 .gr-tabs { margin-bottom: 18px; padding-right: 60px; border-radius: 6px 0 0 6px; }
-.gr-card { margin-bottom: 10px; padding: 14px 16px; background: #2776ad; border-radius: 10px; }
+.gr-card { margin-bottom: 10px; padding: 14px 16px; background: #0f1727; border-radius: 10px; }
 .gr-card.done { opacity: 0.7; }
 .gr-card header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.gr-card h3 { margin: 0; font: 900 18px Nunito, sans-serif; overflow-wrap: anywhere; }
+.gr-card h3 { margin: 0; font: 900 18px Inter, sans-serif; overflow-wrap: anywhere; }
 .gr-card-meta { margin: 6px 0; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
-.gr-card-meta a { color: #ffd21f; }
+.gr-card-meta a { color: #38d6ec; }
 .gr-card .field { margin-bottom: 12px; }
 .gr-card .field input, .gr-card .field select { width: 100%; padding: 10px 12px; border: 1px solid #ffffff59; border-radius: 8px; box-sizing: border-box; }
 .gr-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start; }
-.gr-total { margin: 0 4px 10px; font-weight: 900; color: #ffd21f; }
+.gr-total { margin: 0 4px 10px; font-weight: 900; color: #38d6ec; }
 .gr-static { cursor: default; }
 .gr-static:hover { border-color: transparent; }
 .gr-counters { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
 .gr-counter { display: flex; align-items: center; gap: 8px; font-weight: 800; }
-.gr-counter button { width: 30px; height: 30px; font: 900 16px Nunito, sans-serif; color: #12344d; background: #ffd21f; border: 0; border-radius: 50%; cursor: pointer; }
+.gr-counter button { width: 30px; height: 30px; font: 900 16px Inter, sans-serif; color: #0b111d; background: #38d6ec; border: 0; border-radius: 50%; cursor: pointer; }
 .gr-counter b { min-width: 18px; text-align: center; }
 .gr-search { width: 100%; margin-bottom: 12px; padding: 10px 12px; border: 1px solid #ffffff59; border-radius: 8px; box-sizing: border-box; }
-.gr-search::placeholder { color: #b9d7e8; }
+.gr-search::placeholder { color: #8a97ad; }
 .gr-delete-inline { margin: 0; }
 .gr-score { margin-bottom: 18px; }
 .gr-score-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; }
-.gr-stat { display: flex; flex: 1 1 110px; flex-direction: column; padding: 10px 14px; background: #12344d; border-radius: 10px; }
-.gr-stat b { font: 900 24px Nunito, sans-serif; color: #ffd21f; }
-.gr-stat span { font: 800 12px Nunito, sans-serif; }
-.gr-stat small { font: 700 11px Nunito, sans-serif; color: #b9d7e8; }
+.gr-stat { display: flex; flex: 1 1 110px; flex-direction: column; padding: 10px 14px; background: #0b111d; border-radius: 10px; }
+.gr-stat b { font: 900 24px Inter, sans-serif; color: #38d6ec; }
+.gr-stat span { font: 800 12px Inter, sans-serif; }
+.gr-stat small { font: 700 11px Inter, sans-serif; color: #8a97ad; }
 .gr-follow-form { display: flex; flex: 1 1 220px; align-items: center; gap: 6px; }
 .gr-follow-form input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid #ffffff59; border-radius: 8px; }
-.gr-follow-form input::placeholder { color: #b9d7e8; }
+.gr-follow-form input::placeholder { color: #8a97ad; }
 .gr-upload { display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .gr-posts { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
 .gr-post { margin: 0; }
-.gr-post img { display: block; width: 100%; max-height: 340px; object-fit: contain; margin-bottom: 10px; background: #12344d; border-radius: 8px; }
+.gr-post img { display: block; width: 100%; max-height: 340px; object-fit: contain; margin-bottom: 10px; background: #0b111d; border-radius: 8px; }
 .gr-post textarea, .gr-post input { width: 100%; padding: 10px; border: 1px solid #ffffff59; border-radius: 8px; box-sizing: border-box; }
 .gr-post .gr-actions { margin-top: 8px; }
 .gr-terms-toggle { margin-top: 14px; cursor: pointer; }
@@ -38,55 +38,55 @@
 .gr-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .gr-filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .gr-filters button {
-  padding: 7px 14px; font: 800 14px Nunito, sans-serif; color: #fff;
-  background: #1a4f7a; border: 0; border-radius: 999px; cursor: pointer;
+  padding: 7px 14px; font: 800 14px Inter, sans-serif; color: #fff;
+  background: #ffffff0d; border: 0; border-radius: 999px; cursor: pointer;
 }
-.gr-filters button:hover { background: #2776ad; }
-.gr-filters button.on { color: #12344d; background: #ffd21f; }
-.gr-error { padding: 10px 14px; font-weight: 800; color: #fff; background: #c9373c; border-radius: 8px; overflow-wrap: anywhere; }
+.gr-filters button:hover { background: #0f1727; }
+.gr-filters button.on { color: #0b111d; background: #38d6ec; }
+.gr-error { padding: 10px 14px; font-weight: 800; color: #fff; background: #7f1d1d; border-radius: 8px; overflow-wrap: anywhere; }
 
 .gr-form {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;
-  margin-bottom: 16px; padding: 14px; background: #1f7fa8; border-radius: 10px;
+  margin-bottom: 16px; padding: 14px; background: #0d1424; border-radius: 10px;
 }
 .gr-form input, .gr-form select { padding: 10px 12px; font-size: 14px; border: 1px solid #ffffff59; border-radius: 8px; min-width: 0; box-sizing: border-box; }
-.gr-form input::placeholder { color: #b9d7e8; }
+.gr-form input::placeholder { color: #8a97ad; }
 
 .gr-main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 .gr-empty { margin: 8px 4px; font-weight: 700; }
 .gr-row {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px;
   width: 100%; margin-bottom: 6px; padding: 11px 14px; color: #fff; text-align: left;
-  background: #2776ad; border: 3px solid transparent; border-radius: 8px; cursor: pointer;
+  background: #0f1727; border: 3px solid transparent; border-radius: 8px; cursor: pointer;
 }
 .gr-row:hover { border-color: #ffffff80; }
-.gr-row.selected { border-color: #ffd21f; }
-.gr-row-name { font: 800 17px Nunito, sans-serif; overflow-wrap: anywhere; }
-.gr-row-meta { grid-row: 2; font: 700 13px Nunito, sans-serif; color: #cce6f5; overflow-wrap: anywhere; }
+.gr-row.selected { border-color: #38d6ec; }
+.gr-row-name { font: 800 17px Inter, sans-serif; overflow-wrap: anywhere; }
+.gr-row-meta { grid-row: 2; font: 700 13px Inter, sans-serif; color: #8a97ad; overflow-wrap: anywhere; }
 .gr-badge {
   grid-column: 2; grid-row: 1 / 3; align-self: center; padding: 3px 11px;
-  font: 800 12px Nunito, sans-serif; color: #fff; background: #12344d; border-radius: 999px; white-space: nowrap;
+  font: 800 12px Inter, sans-serif; color: #fff; background: #0b111d; border-radius: 999px; white-space: nowrap;
 }
-.gr-badge.due { color: #12344d; background: #ffd21f; }
+.gr-badge.due { color: #0b111d; background: #38d6ec; }
 
-.gr-detail { min-width: 0; background: #1f7fa8; border-radius: 10px; overflow: hidden; }
+.gr-detail { min-width: 0; background: #0d1424; border-radius: 10px; overflow: hidden; }
 .gr-detail > .gr-empty { padding: 16px; }
 .gr-detail header {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 12px 18px; color: #12344d; background: #ffd21f;
+  padding: 12px 18px; color: #0b111d; background: #38d6ec;
 }
-.gr-detail h2 { margin: 0; font: 900 22px Nunito, sans-serif; overflow-wrap: anywhere; }
-.gr-star { flex: none; padding: 5px 12px; font: 800 13px Nunito, sans-serif; color: #fff; background: #12344d; border: 0; border-radius: 999px; cursor: pointer; }
+.gr-detail h2 { margin: 0; font: 900 22px Inter, sans-serif; overflow-wrap: anywhere; }
+.gr-star { flex: none; padding: 5px 12px; font: 800 13px Inter, sans-serif; color: #fff; background: #0b111d; border: 0; border-radius: 999px; cursor: pointer; }
 .gr-body { padding: 16px 18px 18px; }
 .gr-body dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0 0 14px; }
-.gr-body dt { font-weight: 800; color: #ffd21f; }
+.gr-body dt { font-weight: 800; color: #38d6ec; }
 .gr-body dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
-.gr-body h3 { margin: 14px 0 8px; font: 800 15px Nunito, sans-serif; color: #ffd21f; }
-.gr-message { margin: 0 0 10px; padding: 12px; font-weight: 700; line-height: 1.45; color: #12344d; background: #fff; border-radius: 8px; overflow-wrap: anywhere; }
+.gr-body h3 { margin: 14px 0 8px; font: 800 15px Inter, sans-serif; color: #38d6ec; }
+.gr-message { margin: 0 0 10px; padding: 12px; font-weight: 700; line-height: 1.45; color: #0b111d; background: #fff; border-radius: 8px; overflow-wrap: anywhere; }
 .gr-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .gr-body textarea { width: 100%; padding: 10px; border: 1px solid #ffffff59; border-radius: 8px; box-sizing: border-box; }
-.gr-body textarea::placeholder { color: #b9d7e8; }
-.gr-delete { margin-top: 10px; padding: 0; font: 700 13px Nunito, sans-serif; color: #fff; text-decoration: underline; background: none; border: 0; cursor: pointer; }
+.gr-body textarea::placeholder { color: #8a97ad; }
+.gr-delete { margin-top: 10px; padding: 0; font: 700 13px Inter, sans-serif; color: #fff; text-decoration: underline; background: none; border: 0; cursor: pointer; }
 
 @media (max-width: 800px) {
   .gr-main { grid-template-columns: 1fr; }

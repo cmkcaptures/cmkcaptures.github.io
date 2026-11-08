@@ -11,8 +11,18 @@ import InvoiceModal from './components/InvoiceModal'
 import InvoicePreview from './components/InvoicePreview'
 import SettingsModal from './components/SettingsModal'
 import ContentView from './components/ContentView'
-import HubView from './components/HubView'
-import GrowthHub from './components/GrowthHub'
+import BookingsInbox from './components/BookingsInbox'
+import GrowthView from './components/GrowthView'
+import PostPlanner from './components/PostPlanner'
+import TagFinder from './components/TagFinder'
+import ReviewsManager from './components/ReviewsManager'
+import QuoteBuilder from './components/QuoteBuilder'
+import HomeView from './studio/HomeView'
+import Sandy from './studio/Sandy'
+import type { SandyAnswer } from './studio/Sandy'
+import { Section } from './studio/Sections'
+import EventsList from './studio/EventsList'
+import { generateInsights } from './hubEngine'
 import type { Booking } from './components/BookingsInbox'
 import type { Lead } from './growth'
 import Portfolio from './portfolio/Portfolio'
@@ -26,7 +36,7 @@ import './StudioTheme.css'
 
 const SHOW_THUMBS = true
 
-type View = 'hub' | 'pipeline' | 'invoices' | 'content' | 'growth'
+type View = 'home' | 'clients' | 'outreach' | 'posts' | 'money'
 
 function App() {
   const galleryMatch = window.location.pathname.match(/^\/g\/([^/]+)/)
@@ -49,7 +59,7 @@ function StudioApp() {
   const [business, setBusiness] = useState<BusinessProfile>(() => loadBusiness())
   const sync = useCloudSync(clients, invoices, business, setClients, setInvoices, setBusiness)
 
-  const [view, setView] = useState<View>('hub')
+  const [view, setView] = useState<View>('home')
 
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [showClientModal, setShowClientModal] = useState(false)
@@ -176,112 +186,173 @@ function StudioApp() {
 
   const followUpCount = clients.filter(needsFollowUp).length
 
+  const insights = generateInsights(clients, invoices, business)
+  const tips = insights.map((i) => i.message)
+  const urgent = insights.some((i) => i.priority === 'urgent')
+  const owing = clients.filter((c) => (c.stage === 'shot' || c.stage === 'delivered') && !c.fullyPaid)
+  const sandyAnswers: SandyAnswer[] = [
+    {
+      match: /help|what can/i,
+      reply: () => 'Try: "next shoot", "who owes", "deposits", "follow ups", "to do", or "new client".',
+    },
+    {
+      match: /next|upcoming|shoot/i,
+      reply: () => {
+        const next = clients.filter((c) => c.stage === 'booked')
+        return next.length ? `Next up: ${next.map((c) => `${c.name}${c.shootDate ? ` (${c.shootDate})` : ''}`).slice(0, 3).join(', ')}.` : 'No shoots booked yet.'
+      },
+    },
+    {
+      match: /owe|unpaid|money/i,
+      reply: () => (owing.length ? `Still to pay: ${owing.map((c) => `${c.name}${c.price ? ` ${c.price}` : ''}`).join(', ')}.` : 'Nobody owes you anything right now.'),
+    },
+    {
+      match: /deposit/i,
+      reply: () => {
+        const due = clients.filter((c) => c.stage === 'booked' && !c.depositPaid)
+        return due.length ? `Deposits due from: ${due.map((c) => c.name).join(', ')}.` : 'All deposits are in.'
+      },
+    },
+    {
+      match: /follow|lead/i,
+      reply: () => {
+        setView('outreach')
+        return "Opening Outreach. Your follow-ups are at the top."
+      },
+    },
+    {
+      match: /to ?do|today|need/i,
+      reply: () => (tips.length ? tips.slice(0, 3).join(' · ') : "You're all caught up."),
+    },
+    {
+      match: /new client|add client/i,
+      reply: () => {
+        openNewClient()
+        return 'Opened a new client for you.'
+      },
+    },
+  ]
+
+  const NAV: { key: View; label: string; icon: string; badge?: number }[] = [
+    { key: 'home', label: 'Home', icon: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z' },
+    { key: 'clients', label: 'Clients', icon: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8', badge: followUpCount || undefined },
+    { key: 'outreach', label: 'Outreach', icon: 'M22 2 11 13M22 2l-7 20-4-9-9-4z' },
+    { key: 'posts', label: 'Posts', icon: 'M4 4h16v16H4zM4 15l5-5 4 4 3-3 4 4M15 8.5a1.5 1.5 0 1 0 0-.01' },
+    { key: 'money', label: 'Money', icon: 'M3 6h18v12H3zM3 10h18M7 15h3' },
+  ]
+
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="brand">
-          <span className="wordmark">PhotoFlow</span>
-          <span className="brand-tick" />
-          <nav className="view-nav">
-            <button
-              className={`nav-link${view === 'hub' ? ' active' : ''}`}
-              onClick={() => setView('hub')}
-            >
-              Hub
-            </button>
-            <button
-              className={`nav-link${view === 'pipeline' ? ' active' : ''}`}
-              onClick={() => setView('pipeline')}
-            >
-              Pipeline
-            </button>
-            <button
-              className={`nav-link${view === 'invoices' ? ' active' : ''}`}
-              onClick={() => setView('invoices')}
-            >
-              Invoices
-            </button>
-            <button
-              className={`nav-link${view === 'content' ? ' active' : ''}`}
-              onClick={() => setView('content')}
-            >
-              Content
-            </button>
-            <button
-              className={`nav-link${view === 'growth' ? ' active' : ''}`}
-              onClick={() => setView('growth')}
-            >
-              Growth
-            </button>
-          </nav>
+      <div className="st-aurora" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </div>
+      <div className="st-grid" aria-hidden="true" />
+
+      <nav className="st-nav" aria-label="Studio">
+        <div className="st-logo">
+          <i />
+          PhotoFlow
         </div>
-        <div className="header-actions">
-          {view === 'hub' && (
-            <button className="btn-brass" onClick={openNewClient}>
-              + New client
-            </button>
-          )}
-          {view === 'pipeline' && followUpCount > 0 && (
-            <span className="followup-pill">
-              <span className="dot" />
-              {followUpCount} {followUpCount === 1 ? 'needs' : 'need'} a follow-up
-            </span>
-          )}
-          <a className="icon-btn" href="/" title="View public site">
+        {NAV.map((n) => (
+          <button key={n.key} className={`st-nav-link${view === n.key ? ' on' : ''}`} onClick={() => setView(n.key)} aria-current={view === n.key ? 'page' : undefined}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d={n.icon} />
+            </svg>
+            {n.label}
+            {n.badge && <span className="st-nav-badge">{n.badge}</span>}
+          </button>
+        ))}
+        <div className="st-nav-foot">
+          <a className="st-nav-link" href="/">
             View site
           </a>
-          <button className="icon-btn" onClick={() => setShowSettings(true)} title="Business details">
+          <button className="st-nav-link" onClick={() => setShowSettings(true)}>
             Settings
           </button>
-          {view === 'pipeline' && (
-            <button className="btn-brass" onClick={openNewClient}>
-              + New client
-            </button>
-          )}
-          {view === 'invoices' && (
-            <button className="btn-brass" onClick={openNewInvoice}>
-              + New invoice
-            </button>
-          )}
         </div>
-      </header>
+      </nav>
 
-      {sync.error && (
-        <p className="sync-error" role="alert">
-          Not syncing: changes are only saved on this device for now. ({sync.error})
-        </p>
-      )}
-      {view === 'hub' && (
-        <HubView
-          clients={clients}
-          invoices={invoices}
-          business={business}
-          onNavigate={(v) => setView(v as View)}
-          onEditClient={openEditClient}
-          onNewClient={openNewClient}
-          onNewInvoice={openNewInvoice}
-        />
-      )}
-      {view === 'pipeline' && (
-        <ClientBoard clients={clients} showThumbs={SHOW_THUMBS} onCardClick={openEditClient} />
-      )}
-      {view === 'invoices' && (
-        <InvoicesView
-          invoices={invoices}
-          onNew={openNewInvoice}
-          onEdit={openEditInvoice}
-          onPreview={setPreviewInvoice}
-        />
-      )}
-      {view === 'content' && <ContentView />}
-      {view === 'growth' && (
-        <GrowthHub
-          clients={clients}
-          onOpenClient={openEditClient}
-          onLeadBooked={addClientFromLead}
-          onBookingAdded={addClientFromBooking}
-        />
-      )}
+      <main className="st-main">
+        {sync.error && (
+          <p className="sync-error" role="alert">
+            Not syncing: changes are only saved on this device for now. ({sync.error})
+          </p>
+        )}
+
+        {view === 'home' && (
+          <HomeView
+            clients={clients}
+            tips={tips}
+            greetingName={business.yourName.split(/\s+/)[0] || ''}
+            onOpenClient={openEditClient}
+            onNavigate={setView}
+          />
+        )}
+
+        {view === 'clients' && (
+          <Section
+            title="Clients"
+            subtitle="Everyone you're working with, from first message to paid."
+            action={
+              <button className="btn-brass" onClick={openNewClient}>
+                + New client
+              </button>
+            }
+            tabs={[
+              { key: 'board', label: 'Pipeline', content: <ClientBoard clients={clients} showThumbs={SHOW_THUMBS} onCardClick={openEditClient} /> },
+              { key: 'bookings', label: 'Website bookings', content: <BookingsInbox onAdd={addClientFromBooking} /> },
+              { key: 'reviews', label: 'Reviews', content: <ReviewsManager /> },
+            ]}
+          />
+        )}
+
+        {view === 'outreach' && (
+          <Section
+            title="Outreach"
+            subtitle="Find people, message them, follow up."
+            tabs={[
+              { key: 'leads', label: 'Leads', content: <GrowthView onBooked={addClientFromLead} /> },
+              { key: 'events', label: 'Events', content: <EventsList /> },
+            ]}
+          />
+        )}
+
+        {view === 'posts' && (
+          <Section
+            title="Posts"
+            subtitle="What to post, with captions and who to tag."
+            tabs={[
+              { key: 'planner', label: 'Planner', content: <PostPlanner /> },
+              { key: 'captions', label: 'Captions', content: <ContentView /> },
+              { key: 'tags', label: 'Tags', content: <TagFinder /> },
+            ]}
+          />
+        )}
+
+        {view === 'money' && (
+          <Section
+            title="Money"
+            subtitle="Quotes and invoices."
+            action={
+              <button className="btn-brass" onClick={openNewInvoice}>
+                + New invoice
+              </button>
+            }
+            tabs={[
+              {
+                key: 'invoices',
+                label: 'Invoices',
+                content: <InvoicesView invoices={invoices} onNew={openNewInvoice} onEdit={openEditInvoice} onPreview={setPreviewInvoice} />,
+              },
+              { key: 'quotes', label: 'Quotes', content: <QuoteBuilder /> },
+            ]}
+          />
+        )}
+      </main>
+
+      <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} />
 
       {showClientModal && (
         <ClientModal
@@ -304,13 +375,7 @@ function StudioApp() {
         />
       )}
 
-      {previewInvoice && (
-        <InvoicePreview
-          invoice={previewInvoice}
-          profile={business}
-          onClose={() => setPreviewInvoice(null)}
-        />
-      )}
+      {previewInvoice && <InvoicePreview invoice={previewInvoice} profile={business} onClose={() => setPreviewInvoice(null)} />}
 
       {showSettings && (
         <SettingsModal
