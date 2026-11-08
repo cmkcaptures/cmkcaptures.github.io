@@ -25,7 +25,7 @@ export interface PublicGallery {
   title: string
   release_at: string | null
   locked: boolean
-  photos: { path: string; filename: string }[]
+  photos: { path: string; filename: string; favourite?: boolean }[]
 }
 
 function db() {
@@ -121,4 +121,10 @@ export async function fetchPublicGallery(token: string): Promise<PublicGallery |
   const { data, error } = await db().rpc('get_gallery', { p_token: token })
   if (error) throw error
   return data as PublicGallery | null
+}
+
+export async function toggleFavourite(token: string, path: string): Promise<boolean> {
+  const { data, error } = await db().rpc('toggle_favourite', { p_token: token, p_path: path })
+  if (error) throw error
+  return !!data
 }

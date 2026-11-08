@@ -3,7 +3,12 @@ import { supabase } from '../supabase'
 export interface PostPhoto {
   url: string
   path?: string
+  id?: string
+  favourite?: boolean
+  starred?: boolean
 }
+
+export type PostKind = 'post' | 'beforeafter' | 'sneak'
 
 export interface Post {
   id: string
@@ -12,6 +17,7 @@ export interface Post {
   tags: string[]
   post_on: string | null
   posted: boolean
+  kind: PostKind
 }
 
 export interface GalleryOption {
@@ -33,8 +39,9 @@ export async function listPosts(): Promise<Post[]> {
   return data as Post[]
 }
 
-export async function createPost(photos: PostPhoto[]): Promise<Post> {
-  const { data, error } = await db().from('posts').insert({ photos }).select().single()
+export async function createPost(photos: PostPhoto[], kind: PostKind = 'post'): Promise<Post> {
+  const clean = photos.map(({ url, path }) => (path ? { url, path } : { url }))
+  const { data, error } = await db().from('posts').insert({ photos: clean, kind }).select().single()
   if (error) throw error
   return data as Post
 }
@@ -79,9 +86,62 @@ export async function listGalleries(): Promise<GalleryOption[]> {
 }
 
 export async function galleryPhotos(galleryId: string): Promise<PostPhoto[]> {
-  const { data, error } = await db().from('gallery_photos').select('path').eq('gallery_id', galleryId).order('filename')
+  const { data, error } = await db().from('gallery_photos').select('id,path,favourite,starred').eq('gallery_id', galleryId).order('filename')
   if (error) throw error
-  return (data as { path: string }[]).map((p) => ({ url: db().storage.from('galleries').getPublicUrl(p.path).data.publicUrl }))
+  return (data as { id: string; path: string; favourite: boolean; starred: boolean }[]).map((p) => ({
+    id: p.id,
+    favourite: p.favourite,
+    starred: p.starred,
+    url: db().storage.from('galleries').getPublicUrl(p.path).data.publicUrl,
+  }))
+}
+
+export async function setStarred(photoId: string, starred: boolean): Promise<void> {
+  const { error } = await db().from('gallery_photos').update({ starred }).eq('id', photoId)
+  if (error) throw error
+}
+
+/** Free, on-device photo score: sharpness (edge energy) + contrast + exposure. */
+export function scorePhoto(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      try {
+        const w = 96
+        const h = Math.max(3, Math.round((img.height / img.width) * w))
+        const c = document.createElement('canvas')
+        c.width = w
+        c.height = h
+        const ctx = c.getContext('2d')!
+        ctx.drawImage(img, 0, 0, w, h)
+        const d = ctx.getImageData(0, 0, w, h).data
+        const lum = new Float32Array(w * h)
+        let sum = 0
+        for (let i = 0; i < w * h; i++) {
+          lum[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]
+          sum += lum[i]
+        }
+        const mean = sum / lum.length
+        let varSum = 0
+        let edge = 0
+        for (let y = 1; y < h - 1; y++)
+          for (let x = 1; x < w - 1; x++) {
+            const i = y * w + x
+            edge += Math.abs(4 * lum[i] - lum[i - 1] - lum[i + 1] - lum[i - w] - lum[i + w])
+            varSum += (lum[i] - mean) ** 2
+          }
+        const sharp = edge / lum.length / 40
+        const contrast = Math.sqrt(varSum / lum.length) / 64
+        const exposure = 1 - Math.abs(mean - 110) / 110
+        resolve(sharp * 0.5 + contrast * 0.25 + exposure * 0.25)
+      } catch {
+        resolve(0)
+      }
+    }
+    img.onerror = () => resolve(0)
+    img.src = url
+  })
 }
 
 export async function listSavedCaptions(): Promise<{ id: string; text: string }[]> {

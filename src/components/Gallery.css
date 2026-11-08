@@ -44,3 +44,11 @@
   display: inline-block; padding: 10px 2px; font: 600 12px var(--sans);
   letter-spacing: 0.06em; color: var(--brass); text-decoration: none;
 }
+
+.cg-fav-hint { text-align: center; margin: 0 0 14px; font-size: 13px; opacity: .7; }
+.cg-actions { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.cg-actions a { margin-top: 0 !important; }
+.cg-heart { width: 34px; height: 34px; font-size: 17px; line-height: 1; color: #ffffff66; background: #ffffff0d; border: 1px solid #ffffff22; border-radius: 50%; cursor: pointer; transition: color .2s, transform .2s, background .2s; }
+.cg-heart:hover { transform: scale(1.1); }
+.cg-heart.on { color: #ff4d7a; background: #ff4d7a1f; border-color: #ff4d7a66; animation: cg-pop .35s ease; }
+@keyframes cg-pop { 50% { transform: scale(1.3); } }

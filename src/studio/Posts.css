@@ -100,3 +100,25 @@
   .ps-week { grid-template-columns: repeat(7, 92px); overflow-x: auto; }
   .ps-drawer { width: 100%; border-left: 0; }
 }
+
+.ps-kind { position: absolute; top: 6px; left: 6px; padding: 2px 7px; font: 700 10px Inter, sans-serif; color: #fff; border-radius: 6px; background: #3b82f6cc; }
+.ps-kind-sneak { background: #a855f7cc; }
+.ps-empty-thumb { position: absolute; inset: 0; display: grid; place-items: center; font: 600 11px Inter, sans-serif; color: #5f6b80; }
+.ps-hint { margin: 0; font-size: 12px; color: #8a97ad; }
+.ps-crop-9-16 { aspect-ratio: 9 / 16; }
+.ps-stage[hidden] { display: none; }
+.ps-ba { display: flex; flex-direction: column; gap: 8px; }
+.ps-ba-stage { position: relative; overflow: hidden; border-radius: 12px; background: #070b14; }
+.ps-ba-stage img { display: block; width: 100%; max-height: 52vh; object-fit: contain; }
+.ps-ba-before { position: absolute; inset: 0; height: 100%; clip-path: inset(0 calc(100% - var(--split)) 0 0); }
+.ps-ba-line { position: absolute; top: 0; bottom: 0; left: var(--split); width: 2px; background: #38d6ec; box-shadow: 0 0 12px #38d6ec; pointer-events: none; }
+.ps-ba-tag { position: absolute; top: 8px; padding: 2px 8px; font: 700 11px Inter, sans-serif; color: #fff; background: #05080fcc; border-radius: 6px; pointer-events: none; }
+.ps-ba-tag.l { left: 8px; }
+.ps-ba-tag.r { right: 8px; }
+.ps-ba-stage input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; }
+.ps-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.ps-filters button { padding: 6px 10px; font: 600 12px Inter, sans-serif; color: #8a97ad; background: #ffffff08; border: 1px solid #ffffff14; border-radius: 999px; cursor: pointer; }
+.ps-filters button.on { color: #fff; background: #3b82f633; border-color: #3b82f688; }
+.ps-pick-grid .ps-fav { position: absolute; left: 6px; bottom: 6px; font: normal 14px Inter, sans-serif; color: #ff4d7a; text-shadow: 0 0 6px #000; }
+.ps-pick-grid .ps-star { position: absolute; right: 6px; bottom: 6px; display: grid; place-items: center; width: 24px; height: 24px; font: normal 13px Inter, sans-serif; color: #ffffff88; background: #05080fbb; border-radius: 50%; }
+.ps-pick-grid .ps-star.on { color: #fbbf24; }

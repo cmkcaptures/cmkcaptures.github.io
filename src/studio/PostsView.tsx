@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
-import type { GalleryOption, Post, PostPhoto } from './postsApi'
+import type { GalleryOption, Post, PostKind, PostPhoto } from './postsApi'
 import {
   createPost,
   deletePost,
@@ -10,6 +10,8 @@ import {
   listPosts,
   listSavedCaptions,
   saveCaption,
+  scorePhoto,
+  setStarred,
   updatePost,
   uploadPhoto,
 } from './postsApi'
@@ -18,6 +20,30 @@ import { addDaysISO, todayISO } from '../invoiceTypes'
 import './Posts.css'
 
 const WEEK_DAYS = 7
+
+const KIND_LABEL: Record<PostKind, string> = { post: 'Post', beforeafter: 'Before / after', sneak: 'Sneak peek' }
+
+const KIND_CAPTIONS: Partial<Record<PostKind, string[]>> = {
+  beforeafter: [
+    'Before → after. Half the shot happens in the edit.',
+    'Swipe to see the raw. This is why I edit every frame by hand.',
+    'Straight out of camera vs. finished. Which one hits harder?',
+    'Same moment, two versions. The edit is where the mood lives.',
+  ],
+  sneak: [
+    'Sneak peek 👀 Full gallery dropping soon.',
+    'A little taste from last night. The rest is on the way.',
+    'First look. Gallery lands in the next 48 hours.',
+    "Couldn't wait to share this one. More coming soon.",
+  ],
+}
+
+function kindCaption(kind: PostKind, previous: string): string | null {
+  const options = KIND_CAPTIONS[kind]
+  if (!options) return null
+  const fresh = options.filter((o) => o !== previous)
+  return fresh[Math.floor(Math.random() * fresh.length)]
+}
 
 function dayLabel(iso: string): { name: string; num: string } {
   const d = new Date(`${iso}T00:00:00`)
@@ -32,7 +58,7 @@ export default function PostsView() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState<string | null>(null)
-  const [picker, setPicker] = useState<{ intoPost?: string } | null>(null)
+  const [picker, setPicker] = useState<{ intoPost?: string; kind?: PostKind } | null>(null)
   const [uploading, setUploading] = useState('')
   const [justPosted, setJustPosted] = useState<Post | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
@@ -68,7 +94,18 @@ export default function PostsView() {
     }
   }
 
-  async function addPhotos(photos: PostPhoto[], intoPost?: string | null, asCarousel = false) {
+  async function newPost(kind: PostKind) {
+    setError('')
+    try {
+      const post = await createPost([], kind)
+      setPosts((prev) => [...prev, post])
+      setOpenId(post.id)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function addPhotos(photos: PostPhoto[], intoPost?: string | null, asCarousel = false, kind: PostKind = 'post') {
     setError('')
     try {
       if (intoPost) {
@@ -78,7 +115,7 @@ export default function PostsView() {
       }
       const groups = asCarousel ? [photos] : photos.map((p) => [p])
       for (const group of groups) {
-        const post = await createPost(group)
+        const post = await createPost(group, kind)
         setPosts((prev) => [...prev, post])
       }
     } catch (e) {
@@ -186,6 +223,12 @@ export default function PostsView() {
             <p>Drag onto a day to schedule. Drop one post onto another to make a carousel.</p>
           </div>
           <div className="ps-head-actions">
+            <button className="st-ghost" onClick={() => newPost('beforeafter')}>
+              Before / after
+            </button>
+            <button className="st-ghost" onClick={() => setPicker({ kind: 'sneak' })}>
+              Sneak peek
+            </button>
             <button className="st-ghost" onClick={() => setPicker({})}>
               From a gallery
             </button>
@@ -208,7 +251,9 @@ export default function PostsView() {
               {...dropZone(`post:${p.id}`)}
             >
               {p.photos[0] && <img src={p.photos[0].url} alt="" loading="lazy" draggable={false} />}
-              {p.photos.length > 1 && <span className="ps-count">{p.photos.length}</span>}
+              {!p.photos[0] && <span className="ps-empty-thumb">Add photos</span>}
+              {p.kind !== 'post' && <span className={`ps-kind ps-kind-${p.kind}`}>{KIND_LABEL[p.kind]}</span>}
+              {p.photos.length > 1 && p.kind !== 'beforeafter' && <span className="ps-count">{p.photos.length}</span>}
               {p.caption && <span className="ps-has-caption" title="Has a caption" />}
             </button>
           ))}
@@ -278,9 +323,10 @@ export default function PostsView() {
       {picker && (
         <GalleryPicker
           intoPost={!!picker.intoPost}
+          kind={picker.kind ?? 'post'}
           onClose={() => setPicker(null)}
           onPick={(photos, asCarousel) => {
-            addPhotos(photos, picker.intoPost, asCarousel)
+            addPhotos(photos, picker.intoPost, asCarousel, picker.kind ?? 'post')
             setPicker(null)
           }}
         />
@@ -321,7 +367,8 @@ function PostCard({
   onDelete: () => void
 }) {
   const [index, setIndex] = useState(0)
-  const [crop, setCrop] = useState<'none' | '3:4' | '4:5'>('3:4')
+  const [crop, setCrop] = useState<'none' | '3:4' | '4:5' | '9:16'>(post.kind === 'sneak' ? '9:16' : '3:4')
+  const [split, setSplit] = useState(50)
   const [caption, setCaption] = useState(post.caption)
   const [memory, setMemory] = useState<{ id: string; text: string }[]>([])
   const [handles, setHandles] = useState<string[]>([])
@@ -345,6 +392,8 @@ function PostCard({
   }
 
   function shuffle() {
+    const special = kindCaption(post.kind, caption)
+    if (special) return commitCaption(special)
     const fresh = generateCaptions('hyped', 'event', { subject: '', venue: '', city: 'London' }, 1, false)[0]
     commitCaption(fresh)
   }
@@ -383,13 +432,32 @@ function PostCard({
     <div className="ps-drawer-wrap" onClick={onClose}>
       <aside className="ps-drawer" onClick={(e) => e.stopPropagation()} aria-label="Post">
         <header>
-          <h2>{post.photos.length > 1 ? `Carousel · ${post.photos.length} photos` : 'Post'}</h2>
+          <h2>{post.kind !== 'post' ? KIND_LABEL[post.kind] : post.photos.length > 1 ? `Carousel · ${post.photos.length} photos` : 'Post'}</h2>
           <button className="st-ghost" onClick={onClose}>
             Close
           </button>
         </header>
 
-        <div className="ps-stage">
+        {post.kind === 'beforeafter' && (
+          <div className="ps-ba">
+            {post.photos.length >= 2 ? (
+              <div className="ps-ba-stage" style={{ ['--split' as string]: `${split}%` }}>
+                <img src={post.photos[1].url} alt="After" />
+                <img className="ps-ba-before" src={post.photos[0].url} alt="Before" />
+                <span className="ps-ba-line" />
+                <span className="ps-ba-tag l">Before</span>
+                <span className="ps-ba-tag r">After</span>
+                <input type="range" min={0} max={100} value={split} onChange={(e) => setSplit(+e.target.value)} aria-label="Compare before and after" />
+              </div>
+            ) : (
+              <p className="st-empty">{post.photos.length === 0 ? 'Add the BEFORE photo (straight out of camera) first.' : 'Now add the AFTER photo (your edit).'}</p>
+            )}
+            <p className="ps-hint">Posts as a 2-photo carousel: before first, then after. Drag the slider to compare.</p>
+          </div>
+        )}
+        {post.kind === 'sneak' && <p className="ps-hint">Sneak peek: post 1–3 shots to your story or feed now, before the full gallery goes to the client.</p>}
+
+        <div className="ps-stage" hidden={post.kind === 'beforeafter' && post.photos.length >= 2}>
           {photo ? <img src={photo.url} alt="" /> : <p className="st-empty">No photos left in this post.</p>}
           {photo && crop !== 'none' && <span className={`ps-crop ps-crop-${crop.replace(':', '-')}`} />}
           {post.photos.length > 1 && (
@@ -410,9 +478,9 @@ function PostCard({
         </div>
 
         <div className="ps-tools">
-          {(['3:4', '4:5', 'none'] as const).map((c) => (
+          {(['3:4', '4:5', '9:16', 'none'] as const).map((c) => (
             <button key={c} className={crop === c ? 'on' : ''} onClick={() => setCrop(c)}>
-              {c === 'none' ? 'No guide' : c}
+              {c === 'none' ? 'No guide' : c === '9:16' ? 'Story' : c}
             </button>
           ))}
           <span className="ps-tools-gap" />
@@ -515,7 +583,9 @@ function PostCard({
   )
 }
 
-function GalleryPicker({ intoPost, onClose, onPick }: { intoPost: boolean; onClose: () => void; onPick: (photos: PostPhoto[], asCarousel: boolean) => void }) {
+function GalleryPicker({ intoPost, kind, onClose, onPick }: { intoPost: boolean; kind: PostKind; onClose: () => void; onPick: (photos: PostPhoto[], asCarousel: boolean) => void }) {
+  const [filter, setFilter] = useState<'all' | 'fav' | 'star' | 'sandy'>('all')
+  const [scores, setScores] = useState<Record<string, number> | null>(null)
   const [galleries, setGalleries] = useState<GalleryOption[] | null>(null)
   const [gallery, setGallery] = useState<GalleryOption | null>(null)
   const [photos, setPhotos] = useState<PostPhoto[] | null>(null)
@@ -532,12 +602,40 @@ function GalleryPicker({ intoPost, onClose, onPick }: { intoPost: boolean; onClo
     setGallery(g)
     setPhotos(null)
     setChosen([])
+    setScores(null)
+    setFilter('all')
     galleryPhotos(g.id)
       .then(setPhotos)
       .catch((e: Error) => setError(e.message))
   }
 
   const picked = (photos ?? []).filter((p) => chosen.includes(p.url))
+  const favs = (photos ?? []).filter((p) => p.favourite).length
+  const stars = (photos ?? []).filter((p) => p.starred).length
+
+  async function runSandy() {
+    setFilter('sandy')
+    if (scores || !photos) return
+    const out: Record<string, number> = {}
+    for (const p of photos) out[p.url] = await scorePhoto(p.url)
+    setScores(out)
+  }
+
+  function toggleStar(p: PostPhoto) {
+    if (!p.id) return
+    setPhotos((list) => list && list.map((x) => (x.url === p.url ? { ...x, starred: !x.starred } : x)))
+    setStarred(p.id, !p.starred).catch((e: Error) => setError(e.message))
+  }
+
+  const sandyTop = scores
+    ? Object.entries(scores)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, Math.max(3, Math.ceil(Object.keys(scores).length / 5)))
+        .map(([u]) => u)
+    : []
+  const shown = (photos ?? [])
+    .filter((p) => (filter === 'fav' ? p.favourite : filter === 'star' ? p.starred : filter === 'sandy' ? sandyTop.includes(p.url) : true))
+    .sort((a, b) => (filter === 'sandy' ? sandyTop.indexOf(a.url) - sandyTop.indexOf(b.url) : Number(!!b.favourite) - Number(!!a.favourite)))
 
   return (
     <div className="ps-drawer-wrap" onClick={onClose}>
@@ -563,13 +661,46 @@ function GalleryPicker({ intoPost, onClose, onPick }: { intoPost: boolean; onClo
         {gallery && photos === null && <p className="st-empty st-loading">Loading photos…</p>}
         {gallery && photos && (
           <>
+            {kind === 'sneak' && <p className="ps-hint">Pick 1–3 standouts for a sneak peek.</p>}
+            <div className="ps-filters">
+              <button className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>
+                All {photos.length}
+              </button>
+              <button className={filter === 'fav' ? 'on' : ''} onClick={() => setFilter('fav')}>
+                ♥ Client favs {favs}
+              </button>
+              <button className={filter === 'star' ? 'on' : ''} onClick={() => setFilter('star')}>
+                ★ My picks {stars}
+              </button>
+              <button className={filter === 'sandy' ? 'on' : ''} onClick={runSandy}>
+                {filter === 'sandy' && !scores ? 'Sandy is looking…' : "✦ Sandy's picks"}
+              </button>
+            </div>
+            {filter === 'fav' && !favs && <p className="st-empty">No client hearts yet. They tap ♥ in their gallery link.</p>}
+            {filter === 'star' && !stars && <p className="st-empty">Tap ★ on a photo to save it as your pick.</p>}
             <div className="ps-pick-grid">
-              {photos.map((p) => {
+              {shown.map((p) => {
                 const on = chosen.includes(p.url)
                 return (
                   <button key={p.url} className={on ? 'on' : ''} onClick={() => setChosen((c) => (on ? c.filter((x) => x !== p.url) : [...c, p.url]))} aria-pressed={on}>
                     <img src={p.url} alt="" loading="lazy" />
                     {on && <span>{chosen.indexOf(p.url) + 1}</span>}
+                    {p.favourite && (
+                      <em className="ps-fav" title="Client favourite">
+                        ♥
+                      </em>
+                    )}
+                    <i
+                      className={`ps-star${p.starred ? ' on' : ''}`}
+                      role="button"
+                      aria-label="Star"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleStar(p)
+                      }}
+                    >
+                      ★
+                    </i>
                   </button>
                 )
               })}
@@ -581,10 +712,10 @@ function GalleryPicker({ intoPost, onClose, onPick }: { intoPost: boolean; onClo
                 </button>
               ) : (
                 <>
-                  <button className="btn-brass" disabled={!picked.length} onClick={() => onPick(picked, false)}>
-                    Add as {picked.length || ''} posts
+                  <button className="btn-brass" disabled={!picked.length} onClick={() => onPick(picked, kind === 'sneak')}>
+                    {kind === 'sneak' ? `Make sneak peek (${picked.length})` : `Add as ${picked.length || ''} posts`}
                   </button>
-                  <button className="st-ghost" disabled={picked.length < 2} onClick={() => onPick(picked, true)}>
+                  <button className="st-ghost" hidden={kind === 'sneak'} disabled={picked.length < 2} onClick={() => onPick(picked, true)}>
                     Make 1 carousel
                   </button>
                 </>
