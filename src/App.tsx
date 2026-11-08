@@ -304,7 +304,7 @@ function StudioApp() {
 
       <nav className="st-nav" aria-label="Studio">
         <div className="st-logo">
-          <i />
+          <img className="st-logo-mark" src="/favicon.svg" alt="" />
           PhotoFlow
         </div>
         {NAV.map((n) => (

@@ -384,3 +384,4 @@ button.st-item { cursor: pointer; }
 .mn-auto-text b { overflow: hidden; font: 600 14px Inter, sans-serif; white-space: nowrap; text-overflow: ellipsis; }
 .mn-auto-text small { font-size: 12px; color: #8a97ad; }
 .mn-auto-card .btn-brass { padding: 7px 12px; font-size: 13px; }
+.st-logo-mark { width: 28px; height: 28px; border-radius: 8px; box-shadow: 0 0 14px -2px #38d6ec88; }
