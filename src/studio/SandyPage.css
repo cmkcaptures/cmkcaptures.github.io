@@ -57,3 +57,4 @@
   .sp-hero h1 { font-size: 26px; }
   .sp-chat { height: 60vh; }
 }
+.sp-brain { padding: 1px 7px; font: 600 10px Inter, sans-serif; font-style: normal; letter-spacing: .04em; text-transform: uppercase; color: #fbbf24; background: #fbbf2414; border-radius: 999px; }

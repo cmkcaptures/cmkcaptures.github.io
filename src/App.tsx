@@ -317,6 +317,7 @@ function StudioApp() {
 
         {view === 'sandy' && (
           <SandyPage
+            clients={clients}
             nudges={nudges}
             answers={sandyAnswers}
             onGo={setView}
