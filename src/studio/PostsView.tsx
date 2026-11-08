@@ -655,6 +655,9 @@ function GalleryPicker({ intoPost, kind, onClose, onPick }: { intoPost: boolean;
               <span className="st-avatar">{(g.title || 'G').slice(0, 2).toUpperCase()}</span>
               <span className="st-item-text">
                 <b>{g.title || 'Untitled gallery'}</b>
+                <small>
+                  {new Date(g.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {g.photo_count} photos
+                </small>
               </span>
             </button>
           ))}

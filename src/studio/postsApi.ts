@@ -23,6 +23,8 @@ export interface Post {
 export interface GalleryOption {
   id: string
   title: string
+  created_at: string
+  photo_count: number
 }
 
 const PREVIEW_BUCKET = 'post-previews'
@@ -80,9 +82,11 @@ export async function uploadPhoto(file: File): Promise<PostPhoto> {
 }
 
 export async function listGalleries(): Promise<GalleryOption[]> {
-  const { data, error } = await db().from('galleries').select('id,title').order('created_at', { ascending: false })
+  const { data, error } = await db().from('galleries').select('id,title,created_at,gallery_photos(count)').order('created_at', { ascending: false })
   if (error) throw error
-  return data as GalleryOption[]
+  return (data as { id: string; title: string; created_at: string; gallery_photos: { count: number }[] }[])
+    .map((g) => ({ id: g.id, title: g.title, created_at: g.created_at, photo_count: g.gallery_photos[0]?.count ?? 0 }))
+    .filter((g) => g.photo_count > 0)
 }
 
 export async function galleryPhotos(galleryId: string): Promise<PostPhoto[]> {
