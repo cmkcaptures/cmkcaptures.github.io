@@ -10,11 +10,9 @@ import InvoicesView from './components/InvoicesView'
 import InvoiceModal from './components/InvoiceModal'
 import InvoicePreview from './components/InvoicePreview'
 import SettingsModal from './components/SettingsModal'
-import ContentView from './components/ContentView'
 import BookingsInbox from './components/BookingsInbox'
 import GrowthView from './components/GrowthView'
-import PostPlanner from './components/PostPlanner'
-import TagFinder from './components/TagFinder'
+import PostsView from './studio/PostsView'
 import ReviewsManager from './components/ReviewsManager'
 import QuoteBuilder from './components/QuoteBuilder'
 import HomeView from './studio/HomeView'
@@ -320,15 +318,7 @@ function StudioApp() {
         )}
 
         {view === 'posts' && (
-          <Section
-            title="Posts"
-            subtitle="What to post, with captions and who to tag."
-            tabs={[
-              { key: 'planner', label: 'Planner', content: <PostPlanner /> },
-              { key: 'captions', label: 'Captions', content: <ContentView /> },
-              { key: 'tags', label: 'Tags', content: <TagFinder /> },
-            ]}
-          />
+          <Section title="Posts" subtitle="What to post next, and when." tabs={[{ key: 'posts', label: 'Posts', content: <PostsView /> }]} />
         )}
 
         {view === 'money' && (
