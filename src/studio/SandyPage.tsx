@@ -26,7 +26,7 @@ const QUICK = ['Plan my week', 'What should I post?', 'Events to pitch', 'Remind
 
 function loadLog(): Msg[] {
   try {
-    return JSON.parse(localStorage.getItem(LOG_KEY) ?? '[]') as Msg[]
+    return (JSON.parse(localStorage.getItem(LOG_KEY) ?? '[]') as Msg[]).map((m) => ({ ...m, from: m.from === 'me' ? 'me' : 'bot' }))
   } catch {
     return []
   }
