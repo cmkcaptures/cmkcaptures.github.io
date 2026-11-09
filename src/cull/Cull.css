@@ -66,3 +66,9 @@
   .cu-actions button { flex: 1; }
   .cu-nav.next { right: 22px; }
 }
+
+.cu-style { display: flex; align-items: center; gap: 14px; width: 100%; margin-top: 10px; padding: 14px; text-align: left; background: linear-gradient(135deg, #a855f71f, #070b14 60%); border: 1px solid #a855f744; border-radius: 14px; }
+.cu-style > div { display: flex; flex: 1; flex-direction: column; gap: 4px; }
+.cu-style b { font: 700 14px Sora, Inter, sans-serif; }
+.cu-style small { font-size: 12px; line-height: 1.45; color: #b7c2d6; }
+.cu-style .cu-teach { color: #38d6ec; }

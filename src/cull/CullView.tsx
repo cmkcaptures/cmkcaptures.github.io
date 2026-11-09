@@ -5,6 +5,8 @@ import { analyse } from './analyse'
 import type { Shot, Taste, Verdict } from './decide'
 import { decide, learnTaste, TASTE_KEYS, zFeatures } from './decide'
 import { writeResults } from './output'
+import type { StyleProfile, StyleSample } from './style'
+import { learnStyle, loadStyle, parseXmp, saveStyle } from './style'
 import './Cull.css'
 
 const RAW_EXT = /\.(arw|cr2|cr3|nef|raf|orf|rw2|dng|jpe?g)$/i
@@ -31,7 +33,52 @@ export default function CullView() {
   const [index, setIndex] = useState(0)
   const [target, setTarget] = useState(MIN_KEEPERS)
   const [taste, setTaste] = useState<Taste>({})
-  const [opts, setOpts] = useState({ sidecars: true, copyPicks: true, includeMaybes: false })
+  const [opts, setOpts] = useState({ sidecars: true, copyPicks: true, includeMaybes: false, applyStyle: true })
+  const [style, setStyle] = useState<StyleProfile | null>(null)
+  const [teaching, setTeaching] = useState('')
+
+  useEffect(() => {
+    loadStyle().then(setStyle).catch(() => {})
+  }, [])
+
+  async function teachStyle() {
+    setError('')
+    try {
+      const picker = (window as unknown as { showDirectoryPicker: (o: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker
+      const handle = await picker({ mode: 'read', id: 'style' })
+      const files = new Map<string, File>()
+      for await (const entry of (handle as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
+        if (entry.kind === 'file') files.set(entry.name.toLowerCase(), await (entry as FileSystemFileHandle).getFile())
+      }
+      const xmps = [...files.keys()].filter((n) => n.endsWith('.xmp'))
+      if (!xmps.length) throw new Error('No .xmp files in that folder. Pick a shoot you edited in Lightroom (with "write changes to XMP" on).')
+      const fresh: StyleSample[] = []
+      for (const [i, x] of xmps.entries()) {
+        setTeaching(`Studying your edit ${i + 1} of ${xmps.length}…`)
+        const base = x.replace(/\.xmp$/, '')
+        const rawFile = [...files.entries()].find(([n]) => n.startsWith(base + '.') && RAW_EXT.test(n) && !n.endsWith('.xmp'))?.[1]
+        if (!rawFile) continue
+        const { settings, curves } = parseXmp(await files.get(x)!.text())
+        const info = await readRaw(rawFile)
+        if (!info.preview) continue
+        const { features, thumb } = await analyse(info.preview, info.orientation)
+        URL.revokeObjectURL(thumb)
+        const keep: Record<string, string> = {}
+        for (const [k, v] of Object.entries(settings)) if (/^(Exposure2012|Temperature|Tint|CameraProfile|WhiteBalance)$/.test(k) || /2012$|Adjustment|SplitToning|ColorGrade|Parametric|Grain|Vibrance|Saturation|Sharpen|Sharpness|Clarity|Texture|Dehaze|Smoothing|NoiseReduction|PostCropVignette/.test(k)) keep[k] = v
+        fresh.push({ settings: keep, curves, bright: features.bright })
+      }
+      const all = [...(style?.data ?? []), ...fresh].slice(-500)
+      const learned = learnStyle(all)
+      if (!learned) throw new Error('Need at least 3 edited shots to learn from. Pick a folder with more of your edits.')
+      learned.data = all
+      await saveStyle(learned)
+      setStyle(learned)
+      setTeaching(`Learned from ${fresh.length} new edits (${learned.samples} in total).`)
+    } catch (e) {
+      setTeaching('')
+      if ((e as Error).name !== 'AbortError') setError((e as Error).message)
+    }
+  }
   const [report, setReport] = useState('')
   const [error, setError] = useState('')
   const raw = useRef<Omit<Shot, 'score' | 'verdict' | 'reason' | 'group' | 'groupSize'>[]>([])
@@ -150,10 +197,10 @@ export default function CullView() {
       ) as Parameters<typeof zFeatures>[1]
       const changed = shots.filter((s) => s.mine && s.mine !== s.verdict && s.mine !== 'maybe')
       if (changed.length) await supabase?.from('cull_feedback').insert(changed.map((s) => ({ z: zFeatures(s.features, norms), kept: s.mine === 'pick' })))
-      const r = await writeResults(dir, shots, opts, (text) => setProgress((p) => ({ ...p, text })))
+      const r = await writeResults(dir, shots, { ...opts, style: opts.applyStyle ? style : null }, (text) => setProgress((p) => ({ ...p, text })))
       setReport(
         [
-          opts.sidecars && `${r.sidecars} Lightroom ratings written${r.skipped ? ` (${r.skipped} already had one, left alone)` : ''}`,
+          opts.sidecars && `${r.sidecars} Lightroom ratings${opts.applyStyle && style ? ' + your edit' : ''} written${r.skipped ? ` (${r.skipped} already had one, left alone)` : ''}`,
           opts.copyPicks && `${r.copied} keepers copied to the Picks folder`,
           changed.length ? `Sandy learned from ${changed.length} of your calls` : '',
         ]
@@ -192,6 +239,20 @@ export default function CullView() {
             <button className="btn-brass cu-go" onClick={start}>
               Choose shoot folder
             </button>
+            <div className="cu-style">
+              <div>
+                <b>✦ Auto-edit in your style</b>
+                <small>
+                  {style
+                    ? `Learned from ${style.samples} of your edits: Contrast ${style.base.Contrast2012 ?? 0}, Highlights ${style.base.Highlights2012 ?? 0}, Shadows ${style.base.Shadows2012 ?? 0}, Blacks ${style.base.Blacks2012 ?? 0}, Vibrance ${style.base.Vibrance ?? 0}. Exposure is matched to each shot.`
+                    : 'Show Sandy a shoot you already edited in Lightroom (RAW + .xmp files) and she learns your look. Keepers then open in Lightroom pre-edited.'}
+                </small>
+                {teaching && <small className="cu-teach">{teaching}</small>}
+              </div>
+              <button className="st-ghost" onClick={teachStyle}>
+                {style ? 'Teach more' : 'Teach Sandy my editing'}
+              </button>
+            </div>
             {error && <p className="gr-error">{error}</p>}
           </>
         ) : (
@@ -316,6 +377,11 @@ export default function CullView() {
           <label>
             <input type="checkbox" checked={opts.includeMaybes} onChange={(e) => setOpts({ ...opts, includeMaybes: e.target.checked })} /> Include maybes
           </label>
+          {style && (
+            <label>
+              <input type="checkbox" checked={opts.applyStyle} disabled={!opts.sidecars} onChange={(e) => setOpts({ ...opts, applyStyle: e.target.checked })} /> ✦ Pre-edit in my style
+            </label>
+          )}
         </div>
         <span className="cu-sub">
           {phase === 'saving' ? progress.text : `${overrides} change${overrides === 1 ? '' : 's'} by you · ← → to move · P / M / X`}
