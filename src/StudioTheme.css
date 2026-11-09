@@ -385,3 +385,32 @@ button.st-item { cursor: pointer; }
 .mn-auto-text small { font-size: 12px; color: #8a97ad; }
 .mn-auto-card .btn-brass { padding: 7px 12px; font-size: 13px; }
 .st-logo-mark { width: 28px; height: 28px; border-radius: 8px; box-shadow: 0 0 14px -2px #38d6ec88; }
+
+/* ---------- Phone polish ---------- */
+@media (max-width: 860px) {
+  /* Swipe strips: no desktop scrollbars, smooth touch scrolling */
+  .ps-ready, .bd-journey, .board-scroll, .st-tabs, .gr-filters, .ps-week, .cu-film, .br-filters, .cal-keys {
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+  }
+  .ps-ready::-webkit-scrollbar, .bd-journey::-webkit-scrollbar, .board-scroll::-webkit-scrollbar, .st-tabs::-webkit-scrollbar, .gr-filters::-webkit-scrollbar, .ps-week::-webkit-scrollbar, .cu-film::-webkit-scrollbar { display: none; }
+  .st-tabs { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+  .st-tabs [role=tab] { flex: none; }
+  .gr-filters { flex-wrap: nowrap; overflow-x: auto; }
+  .gr-filters button { flex: none; }
+  .board-scroll, .ps-ready, .bd-journey { scroll-snap-type: x mandatory; }
+  .bd-col, .bd-step, .ps-thumb { scroll-snap-align: start; }
+
+  /* Header actions sit side by side, compact */
+  .st-top { flex-wrap: wrap; gap: 12px; }
+  .st-actions { flex-wrap: nowrap; width: 100%; }
+  .st-actions > * { flex: 1; padding: 10px 12px; font-size: 13px; white-space: nowrap; }
+
+  /* Posts: action buttons as a tidy 2x3 grid */
+  .ps-head-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+  .ps-head-actions > * { width: 100%; padding: 10px 8px; font-size: 13px; }
+  .ps-block { padding: 16px; }
+
+  /* Tap targets */
+  .st-ghost, .btn-brass, .cc-next, .cc-live { min-height: 40px; }
+  .cc-next, .cc-live { padding: 8px 12px; }
+}
