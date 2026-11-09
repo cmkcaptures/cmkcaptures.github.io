@@ -151,3 +151,6 @@
 .app-portal .st-ghost:hover { color: #fff; border-color: #3b82f688; }
 .app-portal { font-family: Inter, sans-serif; color: #e8eef9; }
 .app-portal textarea, .app-portal input { color: #e8eef9; background: #070b14; border: 1px solid #ffffff1a; border-radius: 10px; font: 400 14px Inter, sans-serif; }
+/* Never squash sections inside the post panel; the panel scrolls instead. */
+.ps-drawer > * { flex-shrink: 0; }
+.ps-stage img { width: auto; height: auto; object-fit: contain; }
