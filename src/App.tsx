@@ -24,6 +24,7 @@ import SandyPage from './studio/SandyPage'
 import LiveShoot from './studio/LiveShoot'
 import PriceIt from './studio/PriceIt'
 import CullView from './cull/CullView'
+import PeopleView from './studio/PeopleView'
 import { askSandy } from './studio/sandyAI'
 import type { ChatTurn } from './studio/sandyAI'
 import { paymentStatus } from './types'
@@ -383,6 +384,7 @@ function StudioApp() {
             tabs={[
               { key: 'leads', label: 'Leads', content: <GrowthView onBooked={addClientFromLead} /> },
               { key: 'events', label: 'Events', content: <EventsList /> },
+              { key: 'people', label: 'People', content: <PeopleView clients={clients} /> },
             ]}
           />
         )}

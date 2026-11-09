@@ -11,6 +11,26 @@ const cors = {
 const fail = (error: string, status = 400) => Response.json({ error }, { status, headers: cors })
 const DAY = 86400000
 
+async function eveningWeather(date: string): Promise<string> {
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=51.51&longitude=-0.13&hourly=temperature_2m,precipitation_probability&timezone=Europe%2FLondon&start_date=${date}&end_date=${date}`,
+    )
+    const h = (await res.json()).hourly as { time: string[]; temperature_2m: number[]; precipitation_probability: number[] }
+    const idx = h.time.map((t, i) => (+t.slice(11, 13) >= 18 ? i : -1)).filter((i) => i >= 0)
+    const temp = Math.round(idx.reduce((s, i) => s + h.temperature_2m[i], 0) / idx.length)
+    const rain = Math.max(...idx.map((i) => h.precipitation_probability[i] ?? 0))
+    return ` ${temp}°C${rain >= 30 ? `, ${rain}% rain` : ''}.`
+  } catch {
+    return ''
+  }
+}
+
+function homeTip(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`).getUTCDay()
+  return d === 5 || d === 6 ? ' Night Tube is running.' : ' No Night Tube, so check your last train.'
+}
+
 function londonToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(new Date())
 }
@@ -66,7 +86,7 @@ Deno.serve(async (req) => {
     for (const { data: c } of (recs ?? []) as { data: Record<string, string> }[]) {
       const shoot = parseShoot(c.shootDate)
       if (!shoot) continue
-      if (c.stage === 'booked' && shoot === tomorrow) lines.push(`📸 ${c.name} shoot tomorrow. Charge batteries, format cards.`)
+      if (c.stage === 'booked' && shoot === tomorrow) lines.push(`📸 ${c.name} shoot tomorrow.${await eveningWeather(tomorrow)}${homeTip(tomorrow)} Charge batteries, format cards.`)
       if (c.stage === 'booked' && shoot === today) lines.push(`📸 ${c.name} shoot today. Go get it.`)
       const late = (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${shoot}T00:00:00Z`)) / DAY
       if ((c.stage === 'booked' || c.stage === 'shot') && late >= 2 && late <= 14) lines.push(`⚠️ ${c.name}'s gallery is due (shot ${late} days ago).`)

@@ -1,5 +1,5 @@
 // Sandy's brain: free, rule-based. Looks at everything and returns a short, ranked to-do list.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Client } from '../types'
 import { supabase } from '../supabase'
 import { listLeads, FOLLOW_UP_DAYS } from '../growth'
@@ -7,6 +7,8 @@ import type { Lead } from '../growth'
 import { fetchEvents } from './events'
 import type { RadarEvent } from './events'
 import { parseShootDate } from './time'
+import type { NightWeather } from './nightBrief'
+import { gettingHome, nightWeather, weatherLine } from './nightBrief'
 
 export type NudgeGo = 'home' | 'clients' | 'outreach' | 'posts' | 'money'
 
@@ -42,6 +44,8 @@ export const AFTER_SHOOT = [
   'Send the gallery + ask for a review',
 ]
 
+const iso = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+
 function daysFromToday(date: Date): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -51,6 +55,7 @@ function daysFromToday(date: Date): number {
 }
 
 interface World {
+  weather: Record<string, NightWeather | null>
   reminders: { id: string; text: string; due_on: string | null }[]
   clients: Client[]
   leads: Lead[]
@@ -77,8 +82,19 @@ export function think(w: World): Nudge[] {
         id: `prep-${c.id}`,
         level: 'alert',
         title: `${c.name} shoot ${d === 0 ? 'today' : d === 1 ? 'tomorrow' : 'in 2 days'}`,
-        detail: c.depositPaid ? 'Run through your kit list.' : 'Deposit not in yet. Chase it, then prep your kit.',
-        checklist: SHOOT_PREP,
+        detail: [
+          c.depositPaid ? 'Run through your kit list.' : 'Deposit not in yet. Chase it, then prep your kit.',
+          w.weather[iso(date)] ? `Weather: ${weatherLine(w.weather[iso(date)]!)}.` : '',
+          gettingHome(iso(date)),
+        ]
+          .filter(Boolean)
+          .join(' '),
+        checklist: [
+          ...SHOOT_PREP,
+          ...((w.weather[iso(date)]?.rain ?? 0) >= 40 ? ['Rain cover / bag for the camera'] : []),
+          ...((w.weather[iso(date)]?.temp ?? 20) <= 6 ? ['Spare batteries warm in a pocket (cold drains them)'] : []),
+          'Plan the journey home',
+        ],
         go: 'clients',
         goLabel: 'Open clients',
       })
@@ -173,6 +189,8 @@ export function think(w: World): Nudge[] {
 
 export function useSandyBrain(clients: Client[]): Nudge[] {
   const [rest, setRest] = useState<Omit<World, 'clients'> | null>(null)
+  const clientsRef = useRef(clients)
+  clientsRef.current = clients
 
   useEffect(() => {
     let alive = true
@@ -184,8 +202,15 @@ export function useSandyBrain(clients: Client[]): Nudge[] {
         supabase?.from('posts').select('photos,post_on,posted,created_at').then((r) => r.data ?? []) ?? [],
         supabase?.from('galleries').select('id,client_id,created_at,gallery_photos(count)').then((r) => r.data ?? []) ?? [],
       ])
+      const soon = clientsRef.current
+        .map((c) => (c.stage === 'booked' ? parseShootDate(c.shootDate) : null))
+        .filter((d): d is Date => !!d && daysFromToday(d) >= 0 && daysFromToday(d) <= 2)
+        .map(iso)
+      const weather: World['weather'] = {}
+      for (const d of [...new Set(soon)]) weather[d] = await nightWeather(d)
       if (!alive) return
       setRest({
+        weather,
         reminders: reminders as World['reminders'],
         leads,
         events,

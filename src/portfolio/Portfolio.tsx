@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { portfolio } from './portfolioData'
 import { supabase } from '../supabase'
 import BookingFlow from './BookingFlow'
+import type { GalleryItem } from './portfolioData'
+import { photoUrl } from '../galleryApi'
 import './Portfolio.css'
 
 // Flip to true when pricing is locked in to show Packages to everyone.
@@ -20,9 +22,9 @@ const PROMISES = [
 ]
 
 /** Fades sections in as they scroll into view. */
-function useReveal() {
+function useReveal(key: number) {
   useEffect(() => {
-    const els = document.querySelectorAll('.pf-reveal')
+    const els = document.querySelectorAll('.pf-reveal:not(.in)')
     const io = new IntersectionObserver(
       (entries) =>
         entries.forEach((e) => {
@@ -35,7 +37,7 @@ function useReveal() {
     )
     els.forEach((el) => io.observe(el))
     return () => io.disconnect()
-  }, [])
+  }, [key])
 }
 
 export default function Portfolio() {
@@ -46,8 +48,10 @@ export default function Portfolio() {
   const [review, setReview] = useState(0)
   const [scrolled, setScrolled] = useState(false)
   const heroRef = useRef<HTMLElement>(null)
-  const photos = portfolio.gallery.filter((g) => g.src)
-  useReveal()
+  const [showcase, setShowcase] = useState<GalleryItem[]>([])
+  // Starred photos from the Studio lead the site; the hand-picked set fills in behind them.
+  const photos = [...showcase, ...portfolio.gallery.filter((g) => g.src)].slice(0, 16)
+  useReveal(photos.length)
 
   useEffect(() => {
     supabase
@@ -57,6 +61,11 @@ export default function Portfolio() {
       .order('created_at', { ascending: false })
       .limit(6)
       .then(({ data }) => setReviews(data ?? []))
+    supabase
+      ?.rpc('get_showcase')
+      .then(({ data }) =>
+        setShowcase(((data ?? []) as { path: string }[]).map((p, i) => ({ src: photoUrl(p.path), label: 'Recent', variant: (i % 4) as 0 | 1 | 2 | 3 }))),
+      )
   }, [])
 
   useEffect(() => {
