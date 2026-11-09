@@ -33,10 +33,10 @@ const LABEL: Record<Kind, string> = { pitch: 'Pitch', repitch: 'Pitch again', po
 const iso = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 
 function weekDays(): string[] {
+  // On Sunday plan the coming Mon-Sun; any other day plan the next 7 days starting today.
   const d = new Date()
-  const toMon = (8 - d.getDay()) % 7 || 7 // next Monday (or the one after if today is Monday)
-  const mon = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (d.getDay() === 0 ? 1 : toMon))
-  return Array.from({ length: 7 }, (_, i) => iso(new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i)))
+  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (d.getDay() === 0 ? 1 : 0))
+  return Array.from({ length: 7 }, (_, i) => iso(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)))
 }
 
 export default function Autopilot({ clients, onClose }: { clients: Client[]; onClose: () => void }) {
@@ -70,7 +70,7 @@ export default function Autopilot({ clients, onClose }: { clients: Client[]; onC
       .map((e) => ({ e, s: fitScore(e).score }))
       .filter(({ e }) => {
         const days = (new Date(`${e.date}T00:00:00`).getTime() - Date.now()) / 86400000
-        return days >= 5 && days <= 28
+        return days >= 2 && days <= 28
       })
       .sort((a, b) => b.s - a.s)
       .slice(0, 5 - out.length)
