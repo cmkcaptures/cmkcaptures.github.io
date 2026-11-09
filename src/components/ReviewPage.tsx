@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { supabase } from '../supabase'
 import { portfolio } from '../portfolio/portfolioData'
 import './Gallery.css'
+import './Portal.css'
 
 export default function ReviewPage() {
   const [name, setName] = useState('')

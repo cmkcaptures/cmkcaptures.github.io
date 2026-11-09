@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+/* Client portal + review page in the new blue style */
+.cg, .gate-public {
+  --bg-page: #05080f; --bg-card: #0f1727; --border-input: #ffffff22; --border-hover: #3b82f688;
+  --brass: #3b82f6; --on-brass: #fff; --text-primary: #e8eef9; --text-secondary: #b7c2d6; --text-tertiary: #8a97ad;
+  --sans: Inter, system-ui, sans-serif; --serif: Sora, Inter, sans-serif;
+  font-family: var(--sans);
+}
+.cp { position: relative; overflow-x: clip; padding-bottom: 60px; }
+.cp-aurora { position: fixed; inset: -20%; z-index: 0; pointer-events: none; background: radial-gradient(40% 35% at 80% 5%, #1d4ed844, transparent 70%), radial-gradient(35% 30% at 10% 95%, #0e749033, transparent 70%); animation: cp-drift 22s ease-in-out infinite alternate; }
+@keyframes cp-drift { to { transform: translate(3%, -2%) rotate(5deg); } }
+.cp > *:not(.cp-aurora):not(.cp-lightbox) { position: relative; z-index: 1; }
+.cp-head { max-width: 1100px; margin: 0 auto; padding: 28px 20px 8px; }
+.cp-brand { display: inline-flex; align-items: center; gap: 9px; font: 700 14px var(--serif); letter-spacing: .22em; color: #fff; text-decoration: none; }
+.cp-brand i { width: 8px; height: 8px; background: #38d6ec; border-radius: 50%; box-shadow: 0 0 10px #38d6ec; }
+.cp-head h1 { display: flex; flex-direction: column; gap: 6px; margin: 34px 0 0; font: 800 clamp(32px, 6vw, 54px)/1.05 var(--serif); animation: cp-up .7s ease both; }
+.cp-head h1 small { font: 500 16px var(--sans); color: var(--text-tertiary); }
+@keyframes cp-up { from { opacity: 0; transform: translateY(18px); } }
+.cp-main { display: flex; flex-direction: column; gap: 16px; max-width: 1100px; margin: 26px auto 0; padding: 0 20px; }
+.cp-card { padding: 22px; background: linear-gradient(180deg, #0f1727e6, #0b111de6); border: 1px solid #ffffff14; border-radius: 20px; backdrop-filter: blur(6px); animation: cp-up .6s ease both; }
+
+.cp-steps { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); }
+.cp-steps::before { content: ''; position: absolute; top: 17px; left: 12.5%; right: 12.5%; height: 3px; background: #ffffff14; border-radius: 3px; }
+.cp-bar { position: absolute; top: 17px; left: 12.5%; max-width: 75%; height: 3px; background: linear-gradient(90deg, #2563eb, #38d6ec); border-radius: 3px; box-shadow: 0 0 12px #38d6ec; transition: width 1s cubic-bezier(.2, .8, .2, 1); }
+.cp-step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.cp-step i { display: grid; place-items: center; width: 36px; height: 36px; font: 700 14px var(--serif); font-style: normal; color: var(--text-tertiary); background: #0b111d; border: 2px solid #ffffff22; border-radius: 50%; transition: all .4s; }
+.cp-step span { font: 600 13px var(--sans); color: var(--text-tertiary); }
+.cp-step.done i { color: #05080f; background: #38d6ec; border-color: #38d6ec; }
+.cp-step.now i { color: #fff; background: #2563eb; border-color: #38d6ec; box-shadow: 0 0 0 6px #38d6ec22; animation: cp-pulse 2s ease-in-out infinite; }
+.cp-step.now span, .cp-step.done span { color: #fff; }
+@keyframes cp-pulse { 50% { box-shadow: 0 0 0 10px #38d6ec11; } }
+.cp-note { margin: 18px 0 0; text-align: center; font-size: 15px; color: var(--text-secondary); }
+
+.cp-pay { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; border-color: #38d6ec33; background: linear-gradient(135deg, #0e749026, #0b111de6 60%); }
+.cp-over { display: block; font: 600 12px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: #38d6ec; }
+.cp-pay b { font: 800 36px var(--serif); }
+.cp-pay-how { flex: 1; min-width: 200px; margin: 0; font-size: 14px; line-height: 1.5; color: var(--text-secondary); white-space: pre-line; }
+.cp-btn { padding: 11px 18px; font: 600 14px var(--sans); color: #fff; background: linear-gradient(135deg, #2563eb, #0ea5e9); border: 0; border-radius: 12px; cursor: pointer; }
+.cp-btn.ghost { background: #ffffff0d; border: 1px solid #ffffff2a; }
+
+.cp-gallery-head h2 { margin: 10px 0 4px; font: 700 26px var(--serif); }
+.cp-gallery-head p { margin: 0 0 16px; font-size: 14px; color: var(--text-tertiary); }
+.cp .cg-grid { padding: 0; max-width: none; }
+.cp .cg-grid figure { animation: cp-up .5s ease both; }
+.cp .cg-grid img { cursor: zoom-in; border-radius: 12px; transition: transform .4s, filter .3s; }
+.cp .cg-grid img:hover { filter: brightness(1.08); }
+.cp .cg-actions a { font: 600 13px var(--sans); color: var(--text-secondary); }
+
+.cp-cta-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.cp-cta { display: flex; flex-direction: column; gap: 4px; color: inherit; text-decoration: none; transition: transform .25s, border-color .25s; }
+.cp-cta:hover { transform: translateY(-3px); border-color: #38d6ec66; }
+.cp-cta b { font: 700 17px var(--serif); }
+.cp-cta span { font-size: 13px; color: var(--text-tertiary); }
+
+.cp-lightbox { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: #02040af2; backdrop-filter: blur(10px); }
+.cp-lightbox img { max-width: 100%; max-height: 88vh; border-radius: 12px; }
+.cp-lightbox button { position: absolute; display: grid; place-items: center; width: 46px; height: 46px; font: 400 26px var(--sans); color: #fff; background: #ffffff14; border: 1px solid #ffffff22; border-radius: 50%; cursor: pointer; }
+.cp-lightbox .prev { left: 14px; top: 50%; transform: translateY(-50%); }
+.cp-lightbox .next { right: 14px; top: 50%; transform: translateY(-50%); }
+.cp-lightbox .pf-lb-close { top: 14px; right: 14px; }
+
+/* Review page */
+.gate-public { background: radial-gradient(700px 400px at 80% 0%, #1d4ed833, transparent 60%), #05080f; }
+.gate-public .pf-review-submit { background: linear-gradient(135deg, #2563eb, #0ea5e9); border-radius: 12px; }
+.gate-public .review-form h1 { font: 700 34px var(--serif); }
+
+@media (max-width: 600px) {
+  .cp-step span { font-size: 11px; }
+  .cp-pay b { font-size: 30px; }
+}
