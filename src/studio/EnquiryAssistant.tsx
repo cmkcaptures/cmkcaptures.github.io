@@ -52,8 +52,12 @@ export default function EnquiryAssistant({
   async function read() {
     setStep('reading')
     const today = new Date().toISOString().slice(0, 10)
+    const days = Array.from({ length: 21 }, (_, i) => {
+      const x = new Date(Date.now() + i * 86400000)
+      return `${x.toLocaleDateString('en-GB', { weekday: 'long' })} = ${new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 10)}`
+    }).join(', ')
     const out = await sandyWrite(
-      `Pull the booking details out of this enquiry I received. Today is ${today}. Reply with ONLY a JSON object with keys: name (person or promoter/brand), handle (Instagram @ if any), type (e.g. Club night, Birthday, Portrait, Brand, Live set), date (YYYY-MM-DD, resolve words like "next Friday"; empty if unknown), hours (number of hours if stated or implied by times, else empty), venue, notes (anything else useful, short). Enquiry:\n"""${raw.slice(0, 2500)}"""`,
+      `Pull the booking details out of this enquiry I received. Today is ${today}. Use this calendar to resolve dates exactly ("next Saturday" means the first Saturday after today): ${days}. Reply with ONLY a JSON object with keys: name (person or promoter/brand), handle (Instagram @ if any), type (e.g. Club night, Birthday, Portrait, Brand, Live set), date (YYYY-MM-DD, resolve words like "next Friday"; empty if unknown), hours (number of hours if stated or implied by times, else empty), venue, notes (anything else useful, short). Enquiry:\n"""${raw.slice(0, 2500)}"""`,
     )
     const p = { ...EMPTY, ...parseJson(out) }
     setD(p)

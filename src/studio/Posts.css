@@ -155,7 +155,9 @@
 .ps-drawer > * { flex-shrink: 0; }
 .ps-stage img { width: auto; height: auto; object-fit: contain; }
 .st-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.ea-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ea-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ea-field input { min-width: 0; width: 100%; box-sizing: border-box; }
+.ea { overflow-x: hidden; }
 .ea-field { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #8a97ad; }
 .ea-field input { padding: 9px 11px; font: 400 14px Inter, sans-serif; letter-spacing: 0; text-transform: none; color: #e8eef9; background: #070b14; border: 1px solid #ffffff1a; border-radius: 10px; }
 .ea-price { flex-direction: row; align-items: center; gap: 10px; }
