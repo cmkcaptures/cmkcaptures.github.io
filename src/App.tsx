@@ -23,6 +23,7 @@ import { useSandyBrain } from './studio/sandyBrain'
 import SandyPage from './studio/SandyPage'
 import LiveShoot from './studio/LiveShoot'
 import PriceIt from './studio/PriceIt'
+import CullView from './cull/CullView'
 import { askSandy } from './studio/sandyAI'
 import type { ChatTurn } from './studio/sandyAI'
 import { paymentStatus } from './types'
@@ -387,7 +388,10 @@ function StudioApp() {
         )}
 
         {view === 'posts' && (
-          <Section title="Posts" subtitle="What to post next, and when." tabs={[{ key: 'posts', label: 'Posts', content: <PostsView /> }]} />
+          <Section title="Posts" subtitle="What to post next, and when." tabs={[
+              { key: 'posts', label: 'Posts', content: <PostsView /> },
+              { key: 'cull', label: '✦ Auto-cull', content: <CullView /> },
+            ]} />
         )}
 
         {view === 'money' && (
