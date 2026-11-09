@@ -29,7 +29,48 @@ What you know about the business: shoots club nights, events, artists and promot
 
 You can act. When he asks you to do something (remind, add a lead, add a client, open a section, tick off a reminder), call the matching tool, then confirm in one short line. Turn relative dates into YYYY-MM-DD using today's date from the context. If something is unclear, make a sensible guess rather than asking, unless guessing could cause a mistake. Give real advice when asked (pitch messages, captions, pricing, editing, shoot tips) using what you know about his situation. Base facts about his clients, leads and posts only on the context; don't invent data.`
 
+const STOP = new Set('the a an and or but to of in on at for with is are was were be been it this that i me my you your we our do does did can could should would will what when where who how why about from as by so if just get got have has had not no yes hey sandy please'.split(' '))
+const words = (s: string) => (s.toLowerCase().match(/[a-z0-9£@.]+/g) ?? []).filter((w) => w.length > 2 && !STOP.has(w))
+
+/** Picks the knowledge most relevant to the conversation, plus pinned core facts, within a size budget. */
+function relevant(rows: { topic: string; title: string; body: string; pinned: boolean }[], query: string, budget = 7000): string {
+  const q = new Set(words(query))
+  const scored = rows.map((r) => {
+    const text = words(`${r.topic} ${r.title} ${r.body}`)
+    const title = words(r.title)
+    let s = r.pinned ? 100 : 0
+    for (const w of text) if (q.has(w)) s += 1
+    for (const w of title) if (q.has(w)) s += 3
+    return { r, s }
+  })
+  scored.sort((a, b) => b.s - a.s)
+  let out = ''
+  for (const { r, s } of scored) {
+    if (s === 0 && out.length > budget * 0.6) break
+    const line = `[${r.topic}] ${r.title}: ${r.body}\n`
+    if (out.length + line.length > budget) continue
+    out += line
+  }
+  return out
+}
+
 const tools = [
+  {
+    type: 'function',
+    function: {
+      name: 'remember',
+      description: 'Save a fact to your long-term memory when he tells you something worth knowing later (a rule, preference, contact, price, venue detail, lesson). Use when he says remember, note, or shares durable info.',
+      parameters: {
+        type: 'object',
+        properties: {
+          topic: { type: 'string', enum: ['me', 'business', 'gear', 'craft', 'style', 'growth', 'contacts', 'venues', 'studio', 'general'] },
+          title: { type: 'string', description: 'Short label' },
+          body: { type: 'string', description: 'The fact, written clearly in first person as him' },
+        },
+        required: ['title', 'body'],
+      },
+    },
+  },
   {
     type: 'function',
     function: {
@@ -116,6 +157,9 @@ Deno.serve(async (req) => {
   }
 
   const { messages, context } = await req.json()
+  const lastAsk = (Array.isArray(messages) ? messages : []).filter((m: { role: string }) => m.role === 'user').slice(-2).map((m: { content: string }) => m.content).join(' ')
+  const { data: brain } = await admin.from('sandy_knowledge').select('topic,title,body,pinned')
+  const knowledge = relevant((brain ?? []) as { topic: string; title: string; body: string; pinned: boolean }[], lastAsk)
   const history = (Array.isArray(messages) ? messages : []).slice(-16).map((m: { role: string; content: string }) => ({
     role: m.role === 'user' ? 'user' : 'assistant',
     content: String(m.content).slice(0, 4000),
@@ -132,7 +176,8 @@ Deno.serve(async (req) => {
       tool_choice: 'auto',
       messages: [
         { role: 'system', content: PERSONA },
-        { role: 'system', content: `Live context (JSON):\n${JSON.stringify(context).slice(0, 12000)}` },
+        { role: 'system', content: `What you know about him and the business (your memory; trust it over guesses):\n${knowledge || '(nothing saved yet)'}` },
+        { role: 'system', content: `Live context (JSON):\n${JSON.stringify(context).slice(0, 9000)}` },
         ...history,
       ],
     }),

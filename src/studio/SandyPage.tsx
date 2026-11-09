@@ -11,6 +11,7 @@ import type { Client } from '../types'
 import { paymentStatus } from '../types'
 import { supabase } from '../supabase'
 import PushCard from './PushCard'
+import BrainPanel from './BrainPanel'
 import './SandyPage.css'
 
 interface Msg {
@@ -67,6 +68,11 @@ export default function SandyPage({ clients, nudges, answers, onGo, onAddClient 
   }
 
   async function run(name: string, args: Record<string, string>): Promise<string | null> {
+    if (name === 'remember' && args.body) {
+      const { error } = await supabase!.from('sandy_knowledge').insert({ topic: args.topic || 'general', title: args.title || args.body.slice(0, 40), body: args.body })
+      if (error) throw error
+      return `Got it, I'll remember that.`
+    }
     if (name === 'add_reminder' && args.text) {
       const r = await addReminder(args.text, args.due_on || null)
       setReminders((list) => [...list, r])
@@ -325,6 +331,7 @@ export default function SandyPage({ clients, nudges, answers, onGo, onAddClient 
           </section>
         </aside>
       </div>
+      <BrainPanel />
     </div>
   )
 }

@@ -16,6 +16,11 @@ export interface SandyHands {
 }
 
 async function act(name: string, args: Record<string, string>, hands: SandyHands): Promise<string | null> {
+  if (name === 'remember' && args.body) {
+    const { error } = await supabase!.from('sandy_knowledge').insert({ topic: args.topic || 'general', title: args.title || args.body.slice(0, 40), body: args.body })
+    if (error) throw error
+    return `Got it, I'll remember that.`
+  }
   if (name === 'add_reminder' && args.text) {
     const r = await addReminder(args.text, args.due_on || null)
     return `Reminder saved: ${r.text} (${friendlyDate(r.due_on)}).`

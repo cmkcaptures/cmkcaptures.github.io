@@ -65,3 +65,24 @@
 .sp-push-text { margin: 0; font-size: 13px; line-height: 1.5; color: #8a97ad; }
 .sp-push-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .sp-push-note { margin: 0; font-size: 12px; color: #38d6ec; }
+.br-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.br-count { padding: 2px 9px; font: 700 11px Inter, sans-serif; color: #38d6ec; background: #38d6ec14; border-radius: 999px; }
+.br-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.br-filters button { padding: 6px 11px; font: 600 12px Inter, sans-serif; color: #8a97ad; background: #ffffff08; border: 1px solid #ffffff14; border-radius: 999px; cursor: pointer; }
+.br-filters button.on { color: #fff; background: #3b82f633; border-color: #3b82f688; }
+.br-filters em { margin-left: 3px; font-style: normal; color: #5f6b80; }
+.br-filters input { flex: 1; min-width: 160px; padding: 7px 12px; font: 400 13px Inter, sans-serif; color: #e8eef9; background: #070b14; border: 1px solid #ffffff1a; border-radius: 999px; }
+.br-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-top: 6px; }
+.br-fact { display: flex; flex-direction: column; gap: 5px; padding: 12px 14px; text-align: left; color: inherit; background: #070b14; border: 1px solid #ffffff0d; border-radius: 14px; cursor: pointer; animation: st-rise .35s ease both; transition: border-color .2s, transform .2s; }
+.br-fact:hover { border-color: #38d6ec55; transform: translateY(-2px); }
+.br-topic { display: flex; align-items: center; gap: 6px; font: 700 10px Inter, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #38d6ec; }
+.br-topic i { font-style: normal; color: #fbbf24; font-size: 9px; }
+.br-fact b { font: 600 14px Inter, sans-serif; }
+.br-fact small { display: -webkit-box; overflow: hidden; font-size: 12px; line-height: 1.45; color: #8a97ad; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.br-edit { display: flex; flex-direction: column; gap: 8px; padding: 14px; background: #070b14; border: 1px solid #38d6ec44; border-radius: 14px; animation: st-pop .25s ease both; }
+.br-edit-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.br-edit select, .br-edit-row > input, .br-edit textarea { padding: 9px 11px; font: 400 14px Inter, sans-serif; color: #e8eef9; background: #0b111d; border: 1px solid #ffffff1a; border-radius: 10px; }
+.br-edit-row > input { flex: 1; min-width: 160px; }
+.br-edit textarea { resize: vertical; line-height: 1.5; }
+.br-pin { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8a97ad; }
+.br-pin input { accent-color: #fbbf24; }
