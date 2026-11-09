@@ -4,7 +4,9 @@ import { readRaw } from './raw'
 import { analyse } from './analyse'
 import type { Shot, Taste, Verdict } from './decide'
 import { decide, learnTaste, TASTE_KEYS, zFeatures } from './decide'
-import { writeResults } from './output'
+import { sidecarFiles, writeResults } from './output'
+import { canWriteFolders, download, pickFolder } from './folder'
+import { makeZip } from './zip'
 import type { StyleProfile, StyleSample } from './style'
 import { combineLooks, learnStyle, loadStyle, measureLook, parseXmp, referenceNudge, saveStyle } from './style'
 import './Cull.css'
@@ -24,7 +26,8 @@ async function loadTaste(): Promise<Taste> {
 }
 
 export default function CullView() {
-  const supported = typeof window !== 'undefined' && 'showDirectoryPicker' in window
+  const supported = typeof window !== 'undefined' && (canWriteFolders || 'webkitdirectory' in document.createElement('input')) && !/iphone|ipad|android/i.test(navigator.userAgent)
+  const [folder, setFolder] = useState<{ name: string; existing: Set<string> }>({ name: 'shoot', existing: new Set() })
   const [phase, setPhase] = useState<Phase>('start')
   const [dir, setDir] = useState<FileSystemDirectoryHandle | null>(null)
   const [shots, setShots] = useState<Shot[]>([])
@@ -45,13 +48,12 @@ export default function CullView() {
     if (!style) return
     setError('')
     try {
-      const picker = (window as unknown as { showDirectoryPicker: (o: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker
-      const handle = await picker({ mode: 'read', id: 'reference' })
+      const picked = await pickFolder('read', 'reference')
       const looks = []
-      for await (const entry of (handle as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
-        if (entry.kind !== 'file' || !/\.(jpe?g|png|webp)$/i.test(entry.name)) continue
-        setTeaching(`Studying ${entry.name}…`)
-        looks.push(await measureLook(await (entry as FileSystemFileHandle).getFile()))
+      for (const file of picked.files) {
+        if (!/\.(jpe?g|png|webp)$/i.test(file.name)) continue
+        setTeaching(`Studying ${file.name}…`)
+        looks.push(await measureLook(file))
       }
       if (!looks.length) throw new Error('No JPG or PNG photos in that folder.')
       const next = { ...style, reference: combineLooks(looks), strength: style.strength ?? 0.5 }
@@ -74,12 +76,8 @@ export default function CullView() {
   async function teachStyle() {
     setError('')
     try {
-      const picker = (window as unknown as { showDirectoryPicker: (o: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker
-      const handle = await picker({ mode: 'read', id: 'style' })
-      const files = new Map<string, File>()
-      for await (const entry of (handle as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
-        if (entry.kind === 'file') files.set(entry.name.toLowerCase(), await (entry as FileSystemFileHandle).getFile())
-      }
+      const picked = await pickFolder('read', 'style')
+      const files = new Map<string, File>(picked.files.map((f) => [f.name.toLowerCase(), f]))
       const xmps = [...files.keys()].filter((n) => n.endsWith('.xmp'))
       if (!xmps.length) throw new Error('No .xmp files in that folder. Pick a shoot you edited in Lightroom (with "write changes to XMP" on).')
       const fresh: StyleSample[] = []
@@ -119,12 +117,10 @@ export default function CullView() {
   async function start() {
     setError('')
     try {
-      const picker = (window as unknown as { showDirectoryPicker: (o: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker
-      const handle = await picker({ mode: 'readwrite', id: 'cull' })
-      const files: File[] = []
-      for await (const entry of (handle as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
-        if (entry.kind === 'file' && RAW_EXT.test(entry.name)) files.push(await (entry as FileSystemFileHandle).getFile())
-      }
+      const picked = await pickFolder('readwrite', 'cull')
+      const files = picked.files.filter((f) => RAW_EXT.test(f.name))
+      setFolder({ name: picked.name, existing: new Set(picked.files.filter((f) => /\.xmp$/i.test(f.name)).map((f) => f.name.toLowerCase())) })
+      const handle = picked.handle
       if (!files.length) throw new Error('No RAW or JPEG files in that folder. Pick the folder with your .ARW files.')
       // If a folder has RAW + JPEG pairs, only cull the RAW.
       const rawNames = new Set(files.filter((f) => !/\.jpe?g$/i.test(f.name)).map((f) => f.name.replace(/\.[^.]+$/, '').toLowerCase()))
@@ -212,7 +208,7 @@ export default function CullView() {
   }, [index, tab])
 
   async function finish() {
-    if (!dir) return
+    if (!dir && canWriteFolders) return
     setPhase('saving')
     setError('')
     try {
@@ -227,11 +223,18 @@ export default function CullView() {
       ) as Parameters<typeof zFeatures>[1]
       const changed = shots.filter((s) => s.mine && s.mine !== s.verdict && s.mine !== 'maybe')
       if (changed.length) await supabase?.from('cull_feedback').insert(changed.map((s) => ({ z: zFeatures(s.features, norms), kept: s.mine === 'pick' })))
-      const r = await writeResults(dir, shots, { ...opts, style: opts.applyStyle ? style : null }, (text) => setProgress((p) => ({ ...p, text })))
+      let r = { sidecars: 0, skipped: 0, copied: 0 }
+      if (dir) r = await writeResults(dir, shots, { ...opts, style: opts.applyStyle ? style : null }, (text) => setProgress((p) => ({ ...p, text })))
+      else if (opts.sidecars) {
+        const files = sidecarFiles(shots, opts.applyStyle ? style : null, folder.existing)
+        download(makeZip(files), `${folder.name}-lightroom.zip`)
+        r = { sidecars: files.length, skipped: shots.length - files.length, copied: 0 }
+      }
       setReport(
         [
           opts.sidecars && `${r.sidecars} Lightroom ratings${opts.applyStyle && style ? ' + your edit' : ''} written${r.skipped ? ` (${r.skipped} already had one, left alone)` : ''}`,
-          opts.copyPicks && `${r.copied} keepers copied to the Picks folder`,
+          opts.copyPicks && dir && `${r.copied} keepers copied to the Picks folder`,
+          !dir && opts.sidecars && 'Unzip the download into your shoot folder (next to the .ARW files), then import into Lightroom',
           changed.length ? `Sandy learned from ${changed.length} of your calls` : '',
         ]
           .filter(Boolean)
@@ -247,8 +250,8 @@ export default function CullView() {
   if (!supported)
     return (
       <div className="cu-card cu-start">
-        <h2>Open this on your laptop in Chrome</h2>
-        <p>Auto-cull needs to read your shoot folder, which works in Chrome or Edge on a computer.</p>
+        <h2>Open this on your laptop</h2>
+        <p>Auto-cull needs to read your shoot folder from a computer (Chrome, Edge or Firefox).</p>
       </div>
     )
 
@@ -421,11 +424,13 @@ export default function CullView() {
       <div className="cu-finish">
         <div className="cu-opts">
           <label>
-            <input type="checkbox" checked={opts.sidecars} onChange={(e) => setOpts({ ...opts, sidecars: e.target.checked })} /> Lightroom stars
+            <input type="checkbox" checked={opts.sidecars} onChange={(e) => setOpts({ ...opts, sidecars: e.target.checked })} /> Lightroom stars{dir ? '' : ' (as a zip download)'}
           </label>
-          <label>
-            <input type="checkbox" checked={opts.copyPicks} onChange={(e) => setOpts({ ...opts, copyPicks: e.target.checked })} /> Copy picks to "Picks" folder
-          </label>
+          {dir && (
+            <label>
+              <input type="checkbox" checked={opts.copyPicks} onChange={(e) => setOpts({ ...opts, copyPicks: e.target.checked })} /> Copy picks to "Picks" folder
+            </label>
+          )}
           <label>
             <input type="checkbox" checked={opts.includeMaybes} onChange={(e) => setOpts({ ...opts, includeMaybes: e.target.checked })} /> Include maybes
           </label>

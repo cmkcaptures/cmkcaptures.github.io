@@ -43,6 +43,18 @@ export interface OutputReport {
   copied: number
 }
 
+/** Sidecars as plain files (for browsers that can't write into the folder). */
+export function sidecarFiles(shots: Shot[], style: StyleProfile | null | undefined, skip: Set<string>): { name: string; text: string }[] {
+  return shots
+    .map((s) => {
+      const v = s.mine ?? s.verdict
+      const name = s.name.replace(/\.[^.]+$/, '.xmp')
+      const edit = style && v !== 'reject' ? styleFor(style, s.features.bright) : undefined
+      return { name, text: xmp(RATING[v], v === 'pick' ? 'Green' : v === 'maybe' ? 'Yellow' : '', edit) }
+    })
+    .filter((f) => !skip.has(f.name.toLowerCase()))
+}
+
 export async function writeResults(
   dir: FileSystemDirectoryHandle,
   shots: Shot[],
