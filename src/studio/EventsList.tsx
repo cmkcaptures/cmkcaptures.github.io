@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { addLead } from '../growth'
 import type { RadarEvent } from './events'
 import { fetchEvents, initialsOf } from './events'
@@ -106,10 +107,11 @@ export default function EventsList() {
         })}
       </div>
 
-      {draft && (
+      {draft &&
+        createPortal(
         <div className="ps-drawer-wrap ps-center" onClick={() => setDraft(null)}>
           <div className="ps-reminder" onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label="Pitch">
-            <h2>Pitch {draft.event.venue || draft.event.name}</h2>
+            <h2>Pitch {(draft.event.venue || draft.event.name).replace(/,s*$/, '')}</h2>
             <p>
               {initialsOf(draft.event.name)} · {draft.event.name} · {draft.event.date}
             </p>
@@ -138,8 +140,9 @@ export default function EventsList() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body,
+        )}
     </div>
   )
 }
