@@ -154,3 +154,11 @@
 /* Never squash sections inside the post panel; the panel scrolls instead. */
 .ps-drawer > * { flex-shrink: 0; }
 .ps-stage img { width: auto; height: auto; object-fit: contain; }
+.st-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ea-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ea-field { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #8a97ad; }
+.ea-field input { padding: 9px 11px; font: 400 14px Inter, sans-serif; letter-spacing: 0; text-transform: none; color: #e8eef9; background: #070b14; border: 1px solid #ffffff1a; border-radius: 10px; }
+.ea-price { flex-direction: row; align-items: center; gap: 10px; }
+.ea-price input { width: 110px; font: 700 18px Sora, Inter, sans-serif; }
+.ea-price em { font-style: normal; font-weight: 600; text-transform: none; letter-spacing: 0; color: #38d6ec; }
+.ea-approve { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 12px; border-top: 1px solid #ffffff10; }

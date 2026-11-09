@@ -26,6 +26,7 @@ import PriceIt from './studio/PriceIt'
 import CullView from './cull/CullView'
 import PeopleView from './studio/PeopleView'
 import CalendarView from './studio/CalendarView'
+import EnquiryAssistant from './studio/EnquiryAssistant'
 import { askSandy } from './studio/sandyAI'
 import type { ChatTurn } from './studio/sandyAI'
 import { paymentStatus } from './types'
@@ -207,6 +208,7 @@ function StudioApp() {
   const followUpCount = clients.filter(needsFollowUp).length
   const nudges = useSandyBrain(clients)
   const [liveClient, setLiveClient] = useState<Client | null>(null)
+  const [enquiry, setEnquiry] = useState(false)
 
   const insights = generateInsights(clients, invoices, business)
   const tips = insights.map((i) => i.message)
@@ -272,6 +274,13 @@ function StudioApp() {
       },
     },
   ]
+
+  function approveEnquiry(d: { name: string; contact: string; type: string; date: string; price: string; notes: string }, withInvoice: boolean) {
+    const client = normalizeClient({ id: crypto.randomUUID(), name: d.name, contact: d.contact, type: d.type, shootDate: d.date, price: d.price, notes: d.notes, stage: 'inquiry' })
+    setClients((prev) => [...prev, client])
+    setEnquiry(false)
+    if (withInvoice) autoInvoice(client, 'deposit')
+  }
 
   function addClientQuick(name: string, shootDate: string, price: string, type: string) {
     setClients((prev) => [...prev, normalizeClient({ id: crypto.randomUUID(), name, shootDate, price, type, stage: 'inquiry' })])
@@ -366,9 +375,14 @@ function StudioApp() {
             title="Clients"
             subtitle="Everyone you're working with, from first message to paid."
             action={
-              <button className="btn-brass" onClick={openNewClient}>
-                + New client
-              </button>
+              <div className="st-actions">
+                <button className="ap-btn" onClick={() => setEnquiry(true)}>
+                  ✦ Paste enquiry
+                </button>
+                <button className="btn-brass" onClick={openNewClient}>
+                  + New client
+                </button>
+              </div>
             }
             tabs={[
               { key: 'board', label: 'Pipeline', content: <ClientBoard clients={clients} onCardClick={openEditClient} onMove={moveClient} onLive={setLiveClient} /> },
@@ -415,6 +429,7 @@ function StudioApp() {
         )}
       </main>
 
+      {enquiry && <EnquiryAssistant clients={clients} onApprove={approveEnquiry} onClose={() => setEnquiry(false)} />}
       {liveClient && <LiveShoot client={liveClient} onClose={() => setLiveClient(null)} />}
       {view !== 'sandy' && <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} ai={sandyAI} />}
 
