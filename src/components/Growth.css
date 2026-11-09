@@ -161,3 +161,9 @@
   .or-stage::after { display: none; }
   .or-empty { grid-template-columns: minmax(0, 1fr); }
 }
+.bk-sandy { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.bk-chip { padding: 5px 11px; font: 600 12px Inter, sans-serif; border-radius: 999px; }
+.bk-chip.free { color: #34d399; background: #34d39914; border: 1px solid #34d39944; }
+.bk-chip.clash { color: #fbbf24; background: #fbbf2414; border: 1px solid #fbbf2444; }
+.bk-chip.price { color: #38d6ec; background: #38d6ec14; border: 1px solid #38d6ec44; cursor: help; }
+.bk-draft { margin: 6px 0 10px; }

@@ -25,6 +25,7 @@ import LiveShoot from './studio/LiveShoot'
 import PriceIt from './studio/PriceIt'
 import CullView from './cull/CullView'
 import PeopleView from './studio/PeopleView'
+import CalendarView from './studio/CalendarView'
 import { askSandy } from './studio/sandyAI'
 import type { ChatTurn } from './studio/sandyAI'
 import { paymentStatus } from './types'
@@ -371,7 +372,8 @@ function StudioApp() {
             }
             tabs={[
               { key: 'board', label: 'Pipeline', content: <ClientBoard clients={clients} onCardClick={openEditClient} onMove={moveClient} onLive={setLiveClient} /> },
-              { key: 'bookings', label: 'Website bookings', content: <BookingsInbox onAdd={addClientFromBooking} /> },
+              { key: 'calendar', label: 'Calendar', content: <CalendarView clients={clients} onOpenClient={openEditClient} /> },
+              { key: 'bookings', label: 'Website bookings', content: <BookingsInbox onAdd={addClientFromBooking} clients={clients} /> },
               { key: 'reviews', label: 'Reviews', content: <ReviewsManager /> },
             ]}
           />
