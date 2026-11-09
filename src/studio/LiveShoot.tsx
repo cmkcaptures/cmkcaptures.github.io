@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Client } from '../types'
+import LiveWallPanel from './LiveWallPanel'
 import './LiveShoot.css'
 
 interface Shot {
@@ -160,6 +161,8 @@ export default function LiveShoot({ client, onClose }: { client: Client; onClose
           )
         })}
       </section>
+
+      <LiveWallPanel client={client} />
 
       <footer className="ls-foot">
         <button

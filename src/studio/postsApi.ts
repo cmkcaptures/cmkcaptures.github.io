@@ -61,7 +61,7 @@ export async function deletePost(post: Post): Promise<void> {
   if (error) throw error
 }
 
-function shrink(file: File): Promise<Blob> {
+export function shrink(file: File): Promise<Blob> {
   return createImageBitmap(file).then((image) => {
     const scale = Math.min(1, PREVIEW_SIZE / Math.max(image.width, image.height))
     const canvas = document.createElement('canvas')

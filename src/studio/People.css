@@ -29,3 +29,4 @@
 .pp-notes li { padding: 9px 12px; font-size: 13px; line-height: 1.45; color: #e8eef9; background: #070b14; border-left: 2px solid #38d6ec; border-radius: 0 10px 10px 0; }
 .pp-teach { display: flex; gap: 8px; }
 .pp-teach input { flex: 1; min-width: 0; padding: 9px 12px; }
+.pp-portal { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: linear-gradient(135deg, #0e749022, #070b14 60%); border: 1px solid #38d6ec33; border-radius: 12px; } .pp-portal p { margin: 0; font-size: 13px; line-height: 1.45; color: #b7c2d6; } .pp-portal a.st-ghost { text-decoration: none; }

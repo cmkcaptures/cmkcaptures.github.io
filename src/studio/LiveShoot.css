@@ -31,3 +31,13 @@
 .ls-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 6px; font-size: 12px; color: #5f6b80; }
 .ls-foot button { padding: 8px 12px; font: 600 13px Inter, sans-serif; color: #8a97ad; background: none; border: 1px solid #ffffff1a; border-radius: 10px; cursor: pointer; }
 @media (min-width: 861px) { .ls { padding: 30px max(30px, calc(50vw - 360px)); } }
+.ls-wall { display: flex; flex-direction: column; gap: 10px; padding: 16px; background: linear-gradient(135deg, #ef444418, #0b111d 60%); border: 1px solid #ef444444; border-radius: 18px; }
+.ls-wall-head { display: flex; align-items: center; justify-content: space-between; }
+.ls-wall-head b { font: 700 16px Sora, Inter, sans-serif; }
+.ls-wall-head em { padding: 2px 9px; font: 700 12px Inter, sans-serif; font-style: normal; background: #ef4444; border-radius: 999px; }
+.ls-wall p { margin: 0; font-size: 14px; color: #b7c2d6; }
+.ls-wall-btn { padding: 12px 16px; font: 700 15px Inter, sans-serif; color: #fff; background: linear-gradient(135deg, #ef4444, #f97316); border: 0; border-radius: 14px; cursor: pointer; }
+.ls-wall-btn.big { min-height: 56px; font-size: 16px; }
+.ls-wall-row { display: flex; gap: 8px; }
+.ls-wall-row > * { flex: 1; padding: 10px; font: 600 13px Inter, sans-serif; text-align: center; color: #e8eef9; text-decoration: none; background: #ffffff0d; border: 1px solid #ffffff22; border-radius: 12px; cursor: pointer; }
+.ls-wall-err { color: #fca5a5 !important; font-size: 13px; }

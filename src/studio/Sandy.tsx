@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Nudge, NudgeGo } from './sandyBrain'
 import type { ChatTurn } from './sandyAI'
+import Debrief from './Debrief'
 import { addLead } from '../growth'
 
 const store = {
@@ -35,11 +36,12 @@ interface Props {
   nudges: Nudge[]
   onGo: (view: NudgeGo) => void
   ai?: (history: ChatTurn[]) => Promise<string>
+  onPaid?: (clientId: string, price: string) => void
 }
 
 const IDLE_LINES = ['Just chilling. Ask me anything.', 'Tap me if you need something.']
 
-export default function Sandy({ tips, urgent: insightUrgent, answers, nudges: allNudges, onGo, ai }: Props) {
+export default function Sandy({ tips, urgent: insightUrgent, answers, nudges: allNudges, onGo, ai, onPaid }: Props) {
   const [chat, setChat] = useState<ChatTurn[]>([])
   const [hidden, setHidden] = useState<string[]>(() => store.get('sandy.hidden', []))
   const [ticks, setTicks] = useState<Record<string, string[]>>(() => store.get('sandy.ticks', {}))
@@ -154,6 +156,15 @@ export default function Sandy({ tips, urgent: insightUrgent, answers, nudges: al
                           {item}
                         </label>
                       ))}
+                      {n.debrief && (
+                        <Debrief
+                          {...n.debrief}
+                          onDone={(paid) => {
+                            if (paid) onPaid?.(n.debrief!.id, paid)
+                            hide(n.id)
+                          }}
+                        />
+                      )}
                       {n.events?.map((e) => (
                         <div key={e.id} className="sandy-event">
                           <a href={e.link} target="_blank" rel="noreferrer">

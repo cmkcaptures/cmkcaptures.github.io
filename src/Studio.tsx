@@ -425,7 +425,7 @@ function StudioApp() {
       {enquiry && <EnquiryAssistant clients={clients} onApprove={approveEnquiry} onClose={() => setEnquiry(false)} />}
       {liveClient && <LiveShoot client={liveClient} onClose={() => setLiveClient(null)} />}
       </Suspense>
-      {view !== 'sandy' && <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} ai={sandyAI} />}
+      {view !== 'sandy' && <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} ai={sandyAI} onPaid={(id, price) => setClients((prev) => prev.map((c) => (c.id === id ? { ...c, price, lastUpdated: new Date().toISOString() } : c)))} />}
 
       {showClientModal && (
         <ClientModal

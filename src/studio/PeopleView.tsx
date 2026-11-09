@@ -8,6 +8,8 @@ import { supabase } from '../supabase'
 import { parseShootDate, shortDate } from './time'
 import { sandyWrite } from './sandyWrite'
 import Portal from './Portal'
+import type { Partner } from './shareApi'
+import { findPartner, partnerLink, savePartner } from './shareApi'
 import './People.css'
 
 interface Person {
@@ -121,6 +123,19 @@ function PersonCard({ person: p, onClose }: { person: Person; onClose: () => voi
   const [saved, setSaved] = useState(false)
   const [copied, setCopied] = useState(false)
   const due = nextPitch(p)
+  const [partner, setPartner] = useState<Partner | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
+  useEffect(() => {
+    findPartner(p.name).then(setPartner).catch(() => {})
+  }, [p.name])
+
+  async function sharePortal() {
+    const saved = await savePartner(p.name, p.handles[0] ?? '', p.clients.map((c) => c.id))
+    setPartner(saved)
+    await navigator.clipboard.writeText(partnerLink(saved.token))
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 1800)
+  }
 
   const history = [
     ...p.clients.map((c) => ({ when: parseShootDate(c.shootDate), text: `Shot ${c.type || 'a shoot'}${c.price ? ` · ${c.price}` : ''} · ${paymentStatus(c)}`, booked: true })),
@@ -209,6 +224,22 @@ function PersonCard({ person: p, onClose }: { person: Person; onClose: () => voi
             <button className="st-ghost" onClick={teach} disabled={!note.trim()}>
               {saved ? 'Saved ✓' : 'Teach Sandy'}
             </button>
+          </div>
+
+          <h3 className="ps-label">Partner portal</h3>
+          <div className="pp-portal">
+            <p>A private page for them: every night you've shot together, their galleries, payment status and a one-tap rebook.</p>
+            <div className="ps-footer">
+              <button className="btn-brass" onClick={sharePortal} disabled={!p.clients.length}>
+                {linkCopied ? 'Link copied!' : partner ? 'Update + copy link' : 'Create + copy link'}
+              </button>
+              {partner && (
+                <a className="st-ghost" href={partnerLink(partner.token)} target="_blank" rel="noreferrer">
+                  Open ↗
+                </a>
+              )}
+            </div>
+            {!p.clients.length && <small className="ps-hint">Available once you've shot for them.</small>}
           </div>
 
           <h3 className="ps-label">Pitch</h3>

@@ -414,3 +414,15 @@ button.st-item { cursor: pointer; }
   .st-ghost, .btn-brass, .cc-next, .cc-live { min-height: 40px; }
   .cc-next, .cc-live { padding: 8px 12px; }
 }
+.db { display: flex; flex-direction: column; gap: 8px; }
+.db-q { font: 700 11px Inter, sans-serif; letter-spacing: .05em; text-transform: uppercase; color: #8a97ad; }
+.db-vibes { display: flex; gap: 6px; }
+.db-vibes button { flex: 1; padding: 6px 0; font-size: 20px; background: #070b14; border: 1px solid #ffffff14; border-radius: 10px; cursor: pointer; filter: grayscale(.8); transition: transform .15s, filter .15s; }
+.db-vibes button.on { filter: none; border-color: #38d6ec; transform: scale(1.08); }
+.db-money { display: flex; align-items: center; gap: 6px; font: 700 18px Sora, Inter, sans-serif; color: #38d6ec; }
+.db-money input { width: 110px; padding: 8px 10px; font: 700 16px Sora, Inter, sans-serif; color: #e8eef9; background: #070b14; border: 1px solid #ffffff1a; border-radius: 10px; }
+.db-again { display: flex; gap: 6px; }
+.db-again button { flex: 1; padding: 8px; font: 600 13px Inter, sans-serif; color: #b7c2d6; background: #070b14; border: 1px solid #ffffff14; border-radius: 10px; cursor: pointer; }
+.db-again button.on { color: #fff; background: #3b82f633; border-color: #3b82f6; }
+.db textarea { padding: 9px 11px; font: 400 13px Inter, sans-serif; color: #e8eef9; background: #070b14; border: 1px solid #ffffff1a; border-radius: 10px; resize: vertical; }
+.db-save { padding: 10px; font: 700 14px Inter, sans-serif; color: #fff; background: linear-gradient(135deg, #2563eb, #0ea5e9); border: 0; border-radius: 10px; cursor: pointer; }

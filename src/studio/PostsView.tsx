@@ -20,6 +20,7 @@ import { addDaysISO, todayISO } from '../invoiceTypes'
 import PostPerformance from './PostPerformance'
 import AutoPost from './AutoPost'
 import Portal from './Portal'
+import MoveSheet, { pressHandlers } from './MoveSheet'
 import './Posts.css'
 
 const WEEK_DAYS = 7
@@ -66,6 +67,7 @@ export default function PostsView() {
   const [justPosted, setJustPosted] = useState<Post | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
   const [auto, setAuto] = useState(false)
+  const [moving, setMoving] = useState<Post | null>(null)
   const [error, setError] = useState('')
   const uploadInto = useRef<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -250,6 +252,7 @@ export default function PostsView() {
           {ready.map((p, i) => (
             <button
               key={p.id}
+              {...pressHandlers(() => setMoving(p))}
               className={`ps-thumb${dragOver === `post:${p.id}` ? ' over' : ''}`}
               style={{ animationDelay: `${i * 0.04}s` }}
               draggable
@@ -283,7 +286,7 @@ export default function PostsView() {
                 <span className="ps-day-name">{day === today ? 'Today' : name}</span>
                 <span className="ps-day-num">{num}</span>
                 {onDay.map((p) => (
-                  <button key={p.id} className="ps-day-post" draggable onDragStart={(e) => onDrag(e, p.id)} onClick={() => setOpenId(p.id)}>
+                  <button key={p.id} {...pressHandlers(() => setMoving(p))} className="ps-day-post" draggable onDragStart={(e) => onDrag(e, p.id)} onClick={() => setOpenId(p.id)}>
                     {p.photos[0] && <img src={p.photos[0].url} alt="" draggable={false} />}
                   </button>
                 ))}
@@ -316,6 +319,17 @@ export default function PostsView() {
 
       <PostPerformance />
 
+      {moving && (
+        <MoveSheet
+          title="Post on…"
+          options={[
+            { key: 'ready', label: 'Ready to post', sub: 'Unscheduled', current: !moving.post_on },
+            ...days.map((d) => ({ key: d, label: d === today ? 'Today' : new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric' }), sub: `${scheduled.filter((x) => x.post_on === d).length} planned`, current: moving.post_on === d })),
+          ]}
+          onPick={(k) => change(moving, { post_on: k === 'ready' ? null : k })}
+          onClose={() => setMoving(null)}
+        />
+      )}
       {auto && <AutoPost posts={posts} onDone={(made) => setPosts((prev) => [...prev, ...made])} onClose={() => setAuto(false)} />}
 
       {open && (

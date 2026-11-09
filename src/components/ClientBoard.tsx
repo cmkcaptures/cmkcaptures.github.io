@@ -4,6 +4,7 @@ import type { Client, Stage } from '../types'
 import { STAGES } from '../types'
 import ClientCard from './ClientCard'
 import '../studio/Board.css'
+import MoveSheet, { pressHandlers } from '../studio/MoveSheet'
 
 interface Props {
   clients: Client[]
@@ -24,6 +25,7 @@ export default function ClientBoard({ clients, onCardClick, onMove, onLive }: Pr
   const [focus, setFocus] = useState<Stage | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
   const [over, setOver] = useState<Stage | null>(null)
+  const [moving, setMoving] = useState<Client | null>(null)
 
   function drop(e: DragEvent, stage: Stage) {
     e.preventDefault()
@@ -86,6 +88,7 @@ export default function ClientBoard({ clients, onCardClick, onMove, onLive }: Pr
                   {stageClients.map((client) => (
                     <div
                       key={client.id}
+                      {...pressHandlers(() => setMoving(client))}
                       draggable
                       className={dragging === client.id ? 'bd-lift' : ''}
                       onDragStart={(e) => {
@@ -107,6 +110,14 @@ export default function ClientBoard({ clients, onCardClick, onMove, onLive }: Pr
           })}
         </div>
       </div>
+      {moving && (
+        <MoveSheet
+          title={`Move ${moving.name} to…`}
+          options={STAGES.map((s) => ({ key: s.key, label: s.label, sub: STAGE_HINT[s.key], current: s.key === moving.stage }))}
+          onPick={(k) => onMove(moving, k as Stage)}
+          onClose={() => setMoving(null)}
+        />
+      )}
     </div>
   )
 }

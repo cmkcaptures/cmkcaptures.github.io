@@ -21,6 +21,7 @@ export interface Nudge {
   goLabel?: string
   checklist?: string[]
   events?: RadarEvent[]
+  debrief?: { id: string; name: string; date: string; price: string }
 }
 
 const DAY = 86400000
@@ -55,6 +56,7 @@ function daysFromToday(date: Date): number {
 }
 
 interface World {
+  debriefed: string[]
   weather: Record<string, NightWeather | null>
   reminders: { id: string; text: string; due_on: string | null }[]
   clients: Client[]
@@ -178,6 +180,13 @@ export function think(w: World): Nudge[] {
       goLabel: 'Follow up',
     })
 
+  // Debriefs: shoots in the last 3 weeks you haven't told Sandy about yet.
+  for (const { c, date } of shoots) {
+    const d = daysFromToday(date)
+    if (d < 0 && d >= -21 && c.stage !== 'inquiry' && c.stage !== 'booked' && !w.debriefed.includes(c.id))
+      out.push({ id: `debrief-${c.id}`, level: 'do', title: `How did the ${c.name} shoot go?`, detail: '30 seconds. Teaches Sandy what to charge and who to rebook.', debrief: { id: c.id, name: c.name, date: c.shootDate, price: c.price } })
+  }
+
   // Rebooks.
   for (const c of w.clients)
     if (c.rebookOn && c.rebookOn <= today)
@@ -195,8 +204,9 @@ export function useSandyBrain(clients: Client[]): Nudge[] {
   useEffect(() => {
     let alive = true
     async function load() {
-      const [reminders, leads, events, posts, galleries] = await Promise.all([
+      const [reminders, debriefs, leads, events, posts, galleries] = await Promise.all([
         supabase?.from('sandy_reminders').select('id,text,due_on').eq('done', false).then((r) => r.data ?? []) ?? [],
+        supabase?.from('sandy_knowledge').select('title').like('title', 'Debrief · %').then((r) => r.data ?? []) ?? [],
         listLeads().catch(() => []),
         fetchEvents().catch(() => []),
         supabase?.from('posts').select('photos,post_on,posted,created_at').then((r) => r.data ?? []) ?? [],
@@ -212,6 +222,7 @@ export function useSandyBrain(clients: Client[]): Nudge[] {
       setRest({
         weather,
         reminders: reminders as World['reminders'],
+        debriefed: (debriefs as { title: string }[]).map((d) => d.title.split(' · ').pop() ?? ''),
         leads,
         events,
         posts: posts as World['posts'],
