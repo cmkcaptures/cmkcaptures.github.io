@@ -18,6 +18,7 @@ import {
 import { buildHashtags, generateCaptions } from '../captions'
 import { addDaysISO, todayISO } from '../invoiceTypes'
 import PostPerformance from './PostPerformance'
+import AutoPost from './AutoPost'
 import './Posts.css'
 
 const WEEK_DAYS = 7
@@ -63,6 +64,7 @@ export default function PostsView() {
   const [uploading, setUploading] = useState('')
   const [justPosted, setJustPosted] = useState<Post | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
+  const [auto, setAuto] = useState(false)
   const [error, setError] = useState('')
   const uploadInto = useRef<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -224,6 +226,9 @@ export default function PostsView() {
             <p>Drag onto a day to schedule. Drop one post onto another to make a carousel.</p>
           </div>
           <div className="ps-head-actions">
+            <button className="ap-btn" onClick={() => setAuto(true)}>
+              ✦ Auto-post
+            </button>
             <button className="st-ghost" onClick={() => newPost('beforeafter')}>
               Before / after
             </button>
@@ -309,6 +314,8 @@ export default function PostsView() {
       </section>
 
       <PostPerformance />
+
+      {auto && <AutoPost posts={posts} onDone={(made) => setPosts((prev) => [...prev, ...made])} onClose={() => setAuto(false)} />}
 
       {open && (
         <PostCard

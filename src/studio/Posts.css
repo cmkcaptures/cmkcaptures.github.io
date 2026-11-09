@@ -131,3 +131,18 @@
 .ps-perf-badge { position: absolute; top: 6px; left: 6px; padding: 2px 7px; font: 700 10px Inter, sans-serif; color: #05080f; background: #38d6ec; border-radius: 6px; }
 .ps-perf-stats { position: absolute; inset: auto 0 0 0; display: flex; flex-wrap: wrap; gap: 4px 8px; padding: 18px 8px 7px; font: 600 11px Inter, sans-serif; color: #fff; background: linear-gradient(transparent, #05080fee); }
 .ps-perf-stats b { font-weight: 600; }
+.ap-btn { padding: 9px 14px; font: 700 13px Inter, sans-serif; color: #05080f; background: linear-gradient(135deg, #7ff0ff, #38d6ec); border: 0; border-radius: 12px; cursor: pointer; box-shadow: 0 0 20px -6px #38d6ec; transition: transform .2s; }
+.ap-btn:hover { transform: translateY(-2px); }
+.ap-working { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 50px 0; text-align: center; color: #b7c2d6; }
+.ap-orb { width: 90px; height: 90px; border-radius: 50%; background: conic-gradient(from 0deg, #38d6ec, #2563eb, #a855f7, #38d6ec); filter: blur(1px); animation: ap-spin 1.4s linear infinite; box-shadow: 0 0 40px #38d6ec88; mask: radial-gradient(circle, transparent 52%, #000 54%); -webkit-mask: radial-gradient(circle, transparent 52%, #000 54%); }
+@keyframes ap-spin { to { transform: rotate(360deg); } }
+.ap-made { display: flex; align-items: center; gap: 12px; padding: 8px; background: #070b14; border: 1px solid #ffffff10; border-radius: 12px; animation: st-rise .4s ease both; }
+.ap-made img { width: 56px; height: 70px; object-fit: cover; border-radius: 8px; }
+.ap-made span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ap-made b { font: 600 13px Inter, sans-serif; }
+.ap-made small { overflow: hidden; font-size: 12px; color: #8a97ad; white-space: nowrap; text-overflow: ellipsis; }
+.ev-score { display: grid; flex: none; place-items: center; width: 40px; height: 40px; font: 800 14px Sora, Inter, sans-serif; border-radius: 12px; cursor: help; }
+.ev-score.hot { color: #05080f; background: #34d399; box-shadow: 0 0 16px -4px #34d399; }
+.ev-score.warm { color: #05080f; background: #38d6ec; }
+.ev-score.cool { color: #8a97ad; background: #ffffff10; }
+.ev-draft { width: 100%; box-sizing: border-box; margin: 4px 0 12px; padding: 12px; font: 400 14px/1.5 Inter, sans-serif; color: #e8eef9; background: #070b14; border: 1px solid #ffffff1a; border-radius: 12px; resize: vertical; }
