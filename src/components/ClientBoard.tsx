@@ -9,6 +9,7 @@ interface Props {
   clients: Client[]
   onCardClick: (client: Client) => void
   onMove: (client: Client, stage: Stage) => void
+  onLive: (client: Client) => void
 }
 
 const STAGE_HINT: Record<Stage, string> = {
@@ -19,7 +20,7 @@ const STAGE_HINT: Record<Stage, string> = {
   paid: 'All done',
 }
 
-export default function ClientBoard({ clients, onCardClick, onMove }: Props) {
+export default function ClientBoard({ clients, onCardClick, onMove, onLive }: Props) {
   const [focus, setFocus] = useState<Stage | null>(null)
   const [dragging, setDragging] = useState<string | null>(null)
   const [over, setOver] = useState<Stage | null>(null)
@@ -96,7 +97,7 @@ export default function ClientBoard({ clients, onCardClick, onMove }: Props) {
                         setOver(null)
                       }}
                     >
-                      <ClientCard client={client} onClick={() => onCardClick(client)} onAdvance={(to) => onMove(client, to)} />
+                      <ClientCard client={client} onClick={() => onCardClick(client)} onAdvance={(to) => onMove(client, to)} onLive={() => onLive(client)} />
                     </div>
                   ))}
                   <div className="bd-drop">{dragging ? 'Drop here' : stageClients.length ? '' : 'Empty'}</div>

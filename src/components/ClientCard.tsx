@@ -5,6 +5,7 @@ interface Props {
   client: Client
   onClick: () => void
   onAdvance: (stage: Stage) => void
+  onLive?: () => void
 }
 
 function priceLabel(price: string): string {
@@ -12,7 +13,7 @@ function priceLabel(price: string): string {
   return Number.isFinite(n) && n > 0 ? '£' + n.toLocaleString('en-GB') : 'No price'
 }
 
-export default function ClientCard({ client, onClick, onAdvance }: Props) {
+export default function ClientCard({ client, onClick, onAdvance, onLive }: Props) {
   const flagged = needsFollowUp(client)
   const status = paymentStatus(client)
   const meta = [client.type, client.shootDate].filter(Boolean).join(' · ') || 'No date yet'
@@ -46,6 +47,11 @@ export default function ClientCard({ client, onClick, onAdvance }: Props) {
           <a className="cc-link" href={client.galleryUrl} target="_blank" rel="noreferrer">
             Gallery ↗
           </a>
+        )}
+        {client.stage === 'booked' && onLive && (
+          <button className="cc-live" onClick={onLive} title="Start live shoot mode">
+            ● Live
+          </button>
         )}
         {next && (
           <button className="cc-next" onClick={() => onAdvance(next.key)} title={`Move to ${next.label}`}>

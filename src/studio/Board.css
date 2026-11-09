@@ -82,3 +82,5 @@
 .cc-text { padding-top: 10px; }
 .cc-avatar { width: 32px; height: 32px; font-size: 12px; border-radius: 10px; }
 @media (max-width: 860px) { .bd-board { grid-template-columns: repeat(5, 78vw); } }
+.cc-live { padding: 4px 9px; font: 700 11px Inter, sans-serif; color: #fff; background: #ef4444cc; border: 0; border-radius: 8px; cursor: pointer; box-shadow: 0 0 12px -4px #ef4444; }
+.cc-live:hover { background: #ef4444; }

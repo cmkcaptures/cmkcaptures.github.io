@@ -21,6 +21,8 @@ import HomeView from './studio/HomeView'
 import Sandy from './studio/Sandy'
 import { useSandyBrain } from './studio/sandyBrain'
 import SandyPage from './studio/SandyPage'
+import LiveShoot from './studio/LiveShoot'
+import PriceIt from './studio/PriceIt'
 import { askSandy } from './studio/sandyAI'
 import type { ChatTurn } from './studio/sandyAI'
 import { paymentStatus } from './types'
@@ -201,6 +203,7 @@ function StudioApp() {
 
   const followUpCount = clients.filter(needsFollowUp).length
   const nudges = useSandyBrain(clients)
+  const [liveClient, setLiveClient] = useState<Client | null>(null)
 
   const insights = generateInsights(clients, invoices, business)
   const tips = insights.map((i) => i.message)
@@ -365,7 +368,7 @@ function StudioApp() {
               </button>
             }
             tabs={[
-              { key: 'board', label: 'Pipeline', content: <ClientBoard clients={clients} onCardClick={openEditClient} onMove={moveClient} /> },
+              { key: 'board', label: 'Pipeline', content: <ClientBoard clients={clients} onCardClick={openEditClient} onMove={moveClient} onLive={setLiveClient} /> },
               { key: 'bookings', label: 'Website bookings', content: <BookingsInbox onAdd={addClientFromBooking} /> },
               { key: 'reviews', label: 'Reviews', content: <ReviewsManager /> },
             ]}
@@ -397,12 +400,14 @@ function StudioApp() {
                 label: 'Invoices',
                 content: <InvoicesView invoices={invoices} onNew={openNewInvoice} onEdit={openEditInvoice} onPreview={setPreviewInvoice} clients={clients} onAuto={autoInvoice} />,
               },
+              { key: 'price', label: 'Price it', content: <PriceIt clients={clients} /> },
               { key: 'quotes', label: 'Quotes', content: <QuoteBuilder /> },
             ]}
           />
         )}
       </main>
 
+      {liveClient && <LiveShoot client={liveClient} onClose={() => setLiveClient(null)} />}
       {view !== 'sandy' && <Sandy tips={tips} urgent={urgent} answers={sandyAnswers} nudges={nudges} onGo={setView} ai={sandyAI} />}
 
       {showClientModal && (
