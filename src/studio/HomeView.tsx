@@ -9,6 +9,8 @@ import type { RadarEvent } from './events'
 import { fetchEvents, initialsOf } from './events'
 import { countdown, parseShootDate, shortDate } from './time'
 
+import Autopilot from './Autopilot'
+
 interface Props {
   clients: Client[]
   tips: string[]
@@ -61,6 +63,7 @@ function greeting(): string {
 
 export default function HomeView({ clients, tips, greetingName, onOpenClient, onNavigate }: Props) {
   const [now, setNow] = useState(Date.now())
+  const [weekOpen, setWeekOpen] = useState(false)
   const [tip, setTip] = useState(0)
   const [leads, setLeads] = useState<Lead[] | null>(null)
   const [postsWaiting, setPostsWaiting] = useState<number | null>(null)
@@ -154,6 +157,15 @@ export default function HomeView({ clients, tips, greetingName, onOpenClient, on
         <Stat label="Leads to message" value={leadsToMessage} note={`${followUps} follow-up${followUps === 1 ? '' : 's'} due`} onClick={() => onNavigate('outreach')} delay={0.15} />
         <Stat label="Posts this week" value={thisWeek} note="Scheduled in Posts" onClick={() => onNavigate('posts')} delay={0.2} />
       </section>
+
+      <button className="home-week" onClick={() => setWeekOpen(true)}>
+        <i>✦</i>
+        <span>
+          <b>{new Date().getDay() === 0 ? 'Your week is ready to plan' : 'Plan your week with Sandy'}</b>
+          <small>5 pitches with DMs written, posts slotted in, follow-ups and rebooks. Approve once.</small>
+        </span>
+      </button>
+      {weekOpen && <Autopilot clients={clients} onClose={() => setWeekOpen(false)} />}
 
       <section className="st-row">
         <div className="st-panel" style={{ animationDelay: '.25s' }}>

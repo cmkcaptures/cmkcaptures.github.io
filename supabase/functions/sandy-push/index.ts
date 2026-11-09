@@ -95,6 +95,7 @@ Deno.serve(async (req) => {
     const postingToday = (posts ?? []).some((p: { post_on: string | null }) => p.post_on === today)
     if (postingToday) lines.push('📱 You planned a post for today.')
     else if (planned === 0 && new Date().getUTCDay() === 1) lines.push('📱 Nothing planned to post this week.')
+    if (new Date().getUTCDay() === 0 && new Date().getUTCHours() >= 15) lines.unshift('✦ Your week plan is ready. Open PhotoFlow and approve it in 10 minutes.')
     if (!lines.length) return Response.json({ sent: 0, reason: 'nothing to say' }, { headers: cors })
   }
 
