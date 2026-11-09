@@ -379,6 +379,15 @@ function PostCard({
 }) {
   const [index, setIndex] = useState(0)
   const [crop, setCrop] = useState<'none' | '3:4' | '4:5' | '9:16'>(post.kind === 'sneak' ? '9:16' : '3:4')
+  const [ratio, setRatio] = useState<number | null>(null)
+  // The guide is measured against the photo itself: the biggest box of the chosen shape that fits inside it.
+  const guide = (() => {
+    if (crop === 'none' || !ratio) return null
+    const [a, b] = crop.split(':').map(Number)
+    const target = a / b
+    if (Math.abs(ratio - target) / target < 0.04) return { fits: true, w: 100, h: 100 }
+    return ratio > target ? { fits: false, w: (target / ratio) * 100, h: 100 } : { fits: false, w: 100, h: (ratio / target) * 100 }
+  })()
   const [split, setSplit] = useState(50)
   const [caption, setCaption] = useState(post.caption)
   const [memory, setMemory] = useState<{ id: string; text: string }[]>([])
@@ -470,8 +479,15 @@ function PostCard({
         {post.kind === 'sneak' && <p className="ps-hint">Sneak peek: post 1–3 shots to your story or feed now, before the full gallery goes to the client.</p>}
 
         <div className="ps-stage" hidden={post.kind === 'beforeafter' && post.photos.length >= 2}>
-          {photo ? <img src={photo.url} alt="" /> : <p className="st-empty">No photos left in this post.</p>}
-          {photo && crop !== 'none' && <span className={`ps-crop ps-crop-${crop.replace(':', '-')}`} />}
+          {photo ? (
+            <span className="ps-frame">
+              <img src={photo.url} alt="" onLoad={(e) => setRatio(e.currentTarget.naturalWidth / e.currentTarget.naturalHeight)} />
+              {guide && !guide.fits && <span className="ps-crop" style={{ width: `${guide.w}%`, height: `${guide.h}%` }} />}
+              {guide?.fits && <span className="ps-fits">✓ Already {crop}</span>}
+            </span>
+          ) : (
+            <p className="st-empty">No photos left in this post.</p>
+          )}
           {post.photos.length > 1 && (
             <>
               <button className="ps-nav prev" onClick={() => setIndex((i) => Math.max(0, i - 1))} aria-label="Previous photo">

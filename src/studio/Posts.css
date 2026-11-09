@@ -57,10 +57,10 @@
 .ps-drawer header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .ps-drawer h2 { margin: 0; font: 600 18px Sora, Inter, sans-serif; }
 .ps-stage { position: relative; display: grid; place-items: center; min-height: 260px; overflow: hidden; background: #070b14; border-radius: 12px; }
+.ps-frame { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
 .ps-stage img { display: block; max-width: 100%; max-height: 52vh; }
-.ps-crop { position: absolute; top: 50%; left: 50%; height: 100%; transform: translate(-50%, -50%); border: 2px solid #38d6ec; box-shadow: 0 0 0 9999px #05080f88; pointer-events: none; }
-.ps-crop-3-4 { aspect-ratio: 3 / 4; }
-.ps-crop-4-5 { aspect-ratio: 4 / 5; }
+.ps-fits { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); padding: 4px 10px; font: 700 12px Inter, sans-serif; line-height: 1.4; color: #05080f; background: #34d399; border-radius: 999px; white-space: nowrap; }
+.ps-crop { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-sizing: border-box; border: 2px solid #38d6ec; box-shadow: 0 0 0 9999px #05080f88; pointer-events: none; }
 .ps-nav { position: absolute; top: 50%; width: 34px; height: 34px; font: 600 20px Inter, sans-serif; color: #fff; background: #05080fcc; border: 1px solid #ffffff22; border-radius: 50%; transform: translateY(-50%); cursor: pointer; }
 .ps-nav.prev { left: 8px; }
 .ps-nav.next { right: 8px; }
@@ -105,7 +105,6 @@
 .ps-kind-sneak { background: #a855f7cc; }
 .ps-empty-thumb { position: absolute; inset: 0; display: grid; place-items: center; font: 600 11px Inter, sans-serif; color: #5f6b80; }
 .ps-hint { margin: 0; font-size: 12px; color: #8a97ad; }
-.ps-crop-9-16 { aspect-ratio: 9 / 16; }
 .ps-stage[hidden] { display: none; }
 .ps-ba { display: flex; flex-direction: column; gap: 8px; }
 .ps-ba-stage { position: relative; overflow: hidden; border-radius: 12px; background: #070b14; }
