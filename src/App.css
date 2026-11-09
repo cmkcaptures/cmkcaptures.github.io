@@ -1106,3 +1106,5 @@
     display: none;
   }
 }
+
+.app-boot { min-height: 100svh; background: #05080f; }

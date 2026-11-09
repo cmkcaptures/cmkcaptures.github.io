@@ -6,7 +6,7 @@ import type { Shot, Taste, Verdict } from './decide'
 import { decide, learnTaste, TASTE_KEYS, zFeatures } from './decide'
 import { writeResults } from './output'
 import type { StyleProfile, StyleSample } from './style'
-import { learnStyle, loadStyle, parseXmp, saveStyle } from './style'
+import { combineLooks, learnStyle, loadStyle, measureLook, parseXmp, referenceNudge, saveStyle } from './style'
 import './Cull.css'
 
 const RAW_EXT = /\.(arw|cr2|cr3|nef|raf|orf|rw2|dng|jpe?g)$/i
@@ -40,6 +40,36 @@ export default function CullView() {
   useEffect(() => {
     loadStyle().then(setStyle).catch(() => {})
   }, [])
+
+  async function teachReference() {
+    if (!style) return
+    setError('')
+    try {
+      const picker = (window as unknown as { showDirectoryPicker: (o: object) => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker
+      const handle = await picker({ mode: 'read', id: 'reference' })
+      const looks = []
+      for await (const entry of (handle as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
+        if (entry.kind !== 'file' || !/\.(jpe?g|png|webp)$/i.test(entry.name)) continue
+        setTeaching(`Studying ${entry.name}…`)
+        looks.push(await measureLook(await (entry as FileSystemFileHandle).getFile()))
+      }
+      if (!looks.length) throw new Error('No JPG or PNG photos in that folder.')
+      const next = { ...style, reference: combineLooks(looks), strength: style.strength ?? 0.5 }
+      await saveStyle(next)
+      setStyle(next)
+      setTeaching(`Reference look learned from ${looks.length} photos.`)
+    } catch (e) {
+      setTeaching('')
+      if ((e as Error).name !== 'AbortError') setError((e as Error).message)
+    }
+  }
+
+  async function setStrength(v: number) {
+    if (!style) return
+    const next = { ...style, strength: v }
+    setStyle(next)
+    saveStyle(next).catch(() => {})
+  }
 
   async function teachStyle() {
     setError('')
@@ -247,11 +277,33 @@ export default function CullView() {
                     ? `Learned from ${style.samples} of your edits: Contrast ${style.base.Contrast2012 ?? 0}, Highlights ${style.base.Highlights2012 ?? 0}, Shadows ${style.base.Shadows2012 ?? 0}, Blacks ${style.base.Blacks2012 ?? 0}, Vibrance ${style.base.Vibrance ?? 0}. Exposure is matched to each shot.`
                     : 'Show Sandy a shoot you already edited in Lightroom (RAW + .xmp files) and she learns your look. Keepers then open in Lightroom pre-edited.'}
                 </small>
+                {style?.reference && (
+                  <div className="cu-ref">
+                    <small>
+                      Leaning towards your reference look ({style.reference.n} photos):{' '}
+                      {(() => {
+                        const n = referenceNudge(style)
+                        return [n.exposure ? `exposure ${n.exposure > 0 ? '+' : ''}${n.exposure}` : '', ...Object.entries(n.sliders).filter(([, v]) => v).map(([k, v]) => `${k.replace('2012', '')} ${v > 0 ? '+' : ''}${v}`)].filter(Boolean).join(', ') || 'no change'
+                      })()}
+                    </small>
+                    <label>
+                      Strength <b>{Math.round((style.strength ?? 0.5) * 100)}%</b>
+                      <input type="range" min={0} max={100} value={Math.round((style.strength ?? 0.5) * 100)} onChange={(e) => setStrength(+e.target.value / 100)} />
+                    </label>
+                  </div>
+                )}
                 {teaching && <small className="cu-teach">{teaching}</small>}
               </div>
-              <button className="st-ghost" onClick={teachStyle}>
-                {style ? 'Teach more' : 'Teach Sandy my editing'}
-              </button>
+              <div className="cu-style-btns">
+                <button className="st-ghost" onClick={teachStyle}>
+                  {style ? 'Teach more' : 'Teach Sandy my editing'}
+                </button>
+                {style && (
+                  <button className="st-ghost" onClick={teachReference}>
+                    {style.reference ? 'Change reference look' : 'Add a reference look'}
+                  </button>
+                )}
+              </div>
             </div>
             {error && <p className="gr-error">{error}</p>}
           </>

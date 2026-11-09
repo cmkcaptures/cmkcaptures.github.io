@@ -72,3 +72,10 @@
 .cu-style b { font: 700 14px Sora, Inter, sans-serif; }
 .cu-style small { font-size: 12px; line-height: 1.45; color: #b7c2d6; }
 .cu-style .cu-teach { color: #38d6ec; }
+
+.cu-style-btns { display: flex; flex-direction: column; gap: 6px; }
+.cu-ref { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid #ffffff10; }
+.cu-ref label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #8a97ad; }
+.cu-ref label b { color: #fff; }
+.cu-ref input { flex: 1; accent-color: #a855f7; }
+@media (max-width: 860px) { .cu-style { flex-direction: column; align-items: stretch; } .cu-style-btns { flex-direction: row; flex-wrap: wrap; } }
