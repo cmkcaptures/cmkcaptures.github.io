@@ -109,7 +109,7 @@ export default function EventsList() {
 
       {draft &&
         createPortal(
-        <div className="ps-drawer-wrap ps-center" onClick={() => setDraft(null)}>
+        <div className="app-portal"><div className="ps-drawer-wrap ps-center" onClick={() => setDraft(null)}>
           <div className="ps-reminder" onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label="Pitch">
             <h2>Pitch {(draft.event.venue || draft.event.name).replace(/,s*$/, '')}</h2>
             <p>
@@ -140,7 +140,7 @@ export default function EventsList() {
               </button>
             </div>
           </div>
-        </div>,
+        </div></div>,
         document.body,
         )}
     </div>

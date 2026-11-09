@@ -5,6 +5,7 @@ import { createPost, galleryPhotos, listGalleries, scorePhoto, updatePost } from
 import { buildHashtags, generateCaptions } from '../captions'
 import { addDaysISO, todayISO } from '../invoiceTypes'
 import { sandyWrite } from './sandyWrite'
+import Portal from './Portal'
 
 interface Props {
   posts: Post[]
@@ -78,6 +79,7 @@ export default function AutoPost({ posts, onDone, onClose }: Props) {
   }
 
   return (
+    <Portal>
     <div className="ps-drawer-wrap" onClick={step === 'working' ? undefined : onClose}>
       <aside className="ps-drawer" onClick={(e) => e.stopPropagation()} aria-label="Auto-post">
         <header>
@@ -137,5 +139,6 @@ export default function AutoPost({ posts, onDone, onClose }: Props) {
         )}
       </aside>
     </div>
+    </Portal>
   )
 }

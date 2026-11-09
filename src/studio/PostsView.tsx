@@ -19,6 +19,7 @@ import { buildHashtags, generateCaptions } from '../captions'
 import { addDaysISO, todayISO } from '../invoiceTypes'
 import PostPerformance from './PostPerformance'
 import AutoPost from './AutoPost'
+import Portal from './Portal'
 import './Posts.css'
 
 const WEEK_DAYS = 7
@@ -439,6 +440,7 @@ function PostCard({
   }
 
   return (
+    <Portal>
     <div className="ps-drawer-wrap" onClick={onClose}>
       <aside className="ps-drawer" onClick={(e) => e.stopPropagation()} aria-label="Post">
         <header>
@@ -590,6 +592,7 @@ function PostCard({
         </div>
       </aside>
     </div>
+    </Portal>
   )
 }
 
@@ -648,6 +651,7 @@ function GalleryPicker({ intoPost, kind, onClose, onPick }: { intoPost: boolean;
     .sort((a, b) => (filter === 'sandy' ? sandyTop.indexOf(a.url) - sandyTop.indexOf(b.url) : Number(!!b.favourite) - Number(!!a.favourite)))
 
   return (
+    <Portal>
     <div className="ps-drawer-wrap" onClick={onClose}>
       <aside className="ps-drawer ps-picker" onClick={(e) => e.stopPropagation()} aria-label="Pick photos">
         <header>
@@ -738,12 +742,14 @@ function GalleryPicker({ intoPost, kind, onClose, onPick }: { intoPost: boolean;
         )}
       </aside>
     </div>
+    </Portal>
   )
 }
 
 function TagReminder({ post, onClose }: { post: Post; onClose: () => void }) {
   const [copied, copy] = useCopy()
   return (
+    <Portal>
     <div className="ps-drawer-wrap ps-center" onClick={onClose}>
       <div className="ps-reminder" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Tag reminder">
         <h2>Did you tag them?</h2>
@@ -765,5 +771,6 @@ function TagReminder({ post, onClose }: { post: Post; onClose: () => void }) {
         </div>
       </div>
     </div>
+    </Portal>
   )
 }
