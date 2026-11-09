@@ -164,3 +164,10 @@
 .ea-price input { width: 110px; font: 700 18px Sora, Inter, sans-serif; }
 .ea-price em { font-style: normal; font-weight: 600; text-transform: none; letter-spacing: 0; color: #38d6ec; }
 .ea-approve { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 12px; border-top: 1px solid #ffffff10; }
+@media (max-width: 860px) {
+  .ps-head-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+  .ps-head-actions > * { width: 100%; padding: 10px 8px; font-size: 13px; }
+  .ps-head-actions > :last-child { grid-column: 1 / -1; }
+  .ps-ready, .ps-week { scrollbar-width: none; }
+  .ps-ready::-webkit-scrollbar, .ps-week::-webkit-scrollbar { display: none; }
+}
