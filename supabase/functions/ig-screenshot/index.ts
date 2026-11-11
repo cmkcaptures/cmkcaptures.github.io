@@ -14,11 +14,11 @@ async function visionModel(key: string): Promise<string> {
   if (vision) return vision
   const res = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } })
   const ids: string[] = ((await res.json()).data ?? []).map((m: { id: string }) => m.id)
-  for (const re of [/llama-4-maverick/, /llama-4-scout/, /vision/, /llava/]) {
+  for (const re of [/llama-4-maverick/, /llama-4-scout/, /vision/i, /llava/, /qwen.*vl/i, /gemma-?3/i, /pixtral/i, /-vl/i]) {
     const hit = ids.find((id) => re.test(id))
     if (hit) return (vision = hit)
   }
-  throw new Error('No vision model is available on this Groq key right now.')
+  throw new Error(`No vision model on this Groq key. Models: ${ids.join(', ')}`)
 }
 
 const num = (v: unknown): number | null => {
