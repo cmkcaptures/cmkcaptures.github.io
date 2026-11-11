@@ -41,14 +41,24 @@ Deno.serve(async (req) => {
   const key = Object.entries(env).find(([k]) => k.trim().toUpperCase() === 'GROQ_API_KEY')?.[1]?.trim()
   if (!key) return fail('Sandy has no brain key yet.', 412)
 
-  const { image, thumb, today } = await req.json()
-  if (!image || typeof image !== 'string') return fail('No screenshot sent.')
+  const { image, text, thumb, today } = await req.json()
+  if (!image && !text) return fail('No screenshot sent.')
 
-  let model: string
-  try {
-    model = await visionModel(key)
-  } catch (e) {
-    return fail((e as Error).message, 502)
+  // Prefer reading the image directly; if this key has no vision model, use the text the browser read off it (OCR).
+  let model = ''
+  let useImage = false
+  if (image) {
+    try {
+      model = await visionModel(key)
+      useImage = true
+    } catch {
+      if (!text) return fail('Could not read the screenshot here. Try again in a moment.', 502)
+    }
+  }
+  if (!useImage) {
+    const res0 = await fetch('https://api.groq.com/openai/v1/models', { headers: { Authorization: `Bearer ${key}` } })
+    const ids: string[] = ((await res0.json()).data ?? []).map((m: { id: string }) => m.id)
+    model = ids.find((id) => /gpt-oss-120b/.test(id)) ?? ids.find((id) => /qwen|llama|gpt-oss/.test(id)) ?? 'openai/gpt-oss-120b'
   }
 
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -57,18 +67,20 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       model,
       temperature: 0,
-      max_tokens: 400,
+      max_tokens: 1200,
       response_format: { type: 'json_object' },
       messages: [
         {
           role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `This is a screenshot of one of my Instagram posts or its Insights page. Today is ${today}. Read the numbers exactly as shown. Reply with ONLY JSON: {"is_instagram": true/false, "likes": number|null, "comments": number|null, "saves": number|null, "shares": number|null, "reach": number|null (accounts reached), "views": number|null, "posted_on": "YYYY-MM-DD"|null (convert relative dates like "2 days ago" using today), "caption": first 80 characters of the caption or ""}. Use null for anything not visible. Numbers like 1.2K become 1200.`,
-            },
-            { type: 'image_url', image_url: { url: image } },
-          ],
+          content: (() => {
+            const ask = `${useImage ? 'This is a screenshot' : 'Below is text read (by OCR, so expect small mistakes and jumbled order) from a screenshot'} of one of my Instagram posts or its Insights page. Today is ${today}. Read the numbers exactly as shown. Reply with ONLY JSON: {"is_instagram": true/false, "likes": number|null, "comments": number|null, "saves": number|null, "shares": number|null, "reach": number|null (accounts reached), "views": number|null, "posted_on": "YYYY-MM-DD"|null (convert relative dates like "2 days ago" using today), "caption": first 80 characters of the caption or ""}. Use null for anything not visible. Numbers like 1.2K become 1200.`
+            return useImage
+              ? [
+                  { type: 'text', text: ask },
+                  { type: 'image_url', image_url: { url: image } },
+                ]
+              : `${ask}\n\nOCR TEXT:\n${String(text).slice(0, 4000)}`
+          })(),
         },
       ],
     }),

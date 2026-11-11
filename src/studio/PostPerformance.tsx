@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../supabase'
 import { uploadPhoto } from './postsApi'
 
+/** Reads the text off a screenshot on this device (free OCR, loaded only when needed). */
+async function ocr(file: File): Promise<string> {
+  const { createWorker } = await import('tesseract.js')
+  const worker = await createWorker('eng')
+  try {
+    return (await worker.recognize(file)).data.text
+  } finally {
+    await worker.terminate()
+  }
+}
+
 function toDataUrl(file: File, max: number): Promise<string> {
   return createImageBitmap(file).then((img) => {
     const s = Math.min(1, max / Math.max(img.width, img.height))
@@ -104,8 +115,10 @@ export default function PostPerformance() {
       setReading(`Reading screenshot ${i + 1} of ${shots.length}…`)
       try {
         const image = await toDataUrl(file, 1400)
+        setReading(`Reading the numbers off screenshot ${i + 1}…`)
+        const text = await ocr(file)
         const thumb = (await uploadPhoto(file)).url
-        const { data, error } = await supabase.functions.invoke('ig-screenshot', { body: { image, thumb, today: new Date().toISOString().slice(0, 10) } })
+        const { data, error } = await supabase.functions.invoke('ig-screenshot', { body: { image, text, thumb, today: new Date().toISOString().slice(0, 10) } })
         if (error) {
           const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
           throw new Error(body?.error ?? error.message)
