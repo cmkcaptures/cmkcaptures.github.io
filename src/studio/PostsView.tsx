@@ -68,6 +68,11 @@ export default function PostsView() {
   const [dragOver, setDragOver] = useState<string | null>(null)
   const [auto, setAuto] = useState(false)
   const [moving, setMoving] = useState<Post | null>(null)
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState('')
+  const [note, setNote] = useState('')
+  const [confirmAll, setConfirmAll] = useState(false)
   const [error, setError] = useState('')
   const uploadInto = useRef<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -179,6 +184,38 @@ export default function PostsView() {
     if (post.tags.length) setJustPosted(post)
   }
 
+  /** Bulk clear-out: mark many posts as posted (or delete them) in one go. */
+  async function bulk(ids: string[], action: 'posted' | 'delete') {
+    if (!ids.length) return
+    setError('')
+    setBusy(`${action === 'posted' ? 'Marking' : 'Deleting'} ${ids.length}…`)
+    const targets = posts.filter((p) => ids.includes(p.id))
+    const done: string[] = []
+    for (const p of targets) {
+      try {
+        if (action === 'posted') await updatePost(p.id, { posted: true })
+        else await deletePost(p)
+        done.push(p.id)
+      } catch (e) {
+        setError((e as Error).message)
+      }
+    }
+    setPosts((prev) => prev.filter((p) => !done.includes(p.id)))
+    setSelected(new Set())
+    setSelecting(false)
+    setBusy('')
+    setNote(`${done.length} ${action === 'posted' ? 'marked as posted' : 'deleted'}.`)
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   function onDrag(e: DragEvent, id: string) {
     e.dataTransfer.setData('text/post', id)
     e.dataTransfer.effectAllowed = 'move'
@@ -244,8 +281,54 @@ export default function PostsView() {
             <button className="btn-brass" onClick={() => pickFiles(null)} disabled={!!uploading}>
               {uploading || '+ Upload'}
             </button>
+            <button
+              className={`st-ghost${selecting ? ' ps-sel-on' : ''}`}
+              onClick={() => {
+                setSelecting((s) => !s)
+                setSelected(new Set())
+                setConfirmAll(false)
+              }}
+            >
+              {selecting ? 'Done selecting' : '☑ Select'}
+            </button>
           </div>
         </div>
+        {selecting && (
+          <div className="ps-selbar">
+            <span>
+              <b>{selected.size}</b> selected. Tap posts here or in the week below.
+            </span>
+            <button className="st-ghost" onClick={() => setSelected(new Set(posts.map((p) => p.id)))}>
+              Select all {posts.length}
+            </button>
+            <button className="btn-brass" disabled={!selected.size || !!busy} onClick={() => bulk([...selected], 'posted')}>
+              {busy || `✓ Mark ${selected.size || ''} posted`}
+            </button>
+            <button className="gr-delete" disabled={!selected.size || !!busy} onClick={() => bulk([...selected], 'delete')}>
+              Delete
+            </button>
+          </div>
+        )}
+        {!selecting && posts.length > 0 && (
+          <div className="ps-clearall">
+            {confirmAll ? (
+              <>
+                <span>Mark all {posts.length} posts as posted?</span>
+                <button className="btn-brass" disabled={!!busy} onClick={() => (bulk(posts.map((p) => p.id), 'posted'), setConfirmAll(false))}>
+                  {busy || 'Yes, clear them all'}
+                </button>
+                <button className="st-ghost" onClick={() => setConfirmAll(false)}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button className="ps-link" onClick={() => setConfirmAll(true)}>
+                Posted everything? Clear it all out
+              </button>
+            )}
+          </div>
+        )}
+        {note && <p className="ps-hint ss-done">✓ {note}</p>}
         <div className={`ps-ready${dragOver === 'ready' ? ' over' : ''}`} {...dropZone('ready')}>
           {loading && <p className="st-empty st-loading">Loading your posts…</p>}
           {!loading && ready.length === 0 && <p className="st-empty">Nothing waiting. Upload photos or pull some from a gallery.</p>}
@@ -253,11 +336,11 @@ export default function PostsView() {
             <button
               key={p.id}
               {...pressHandlers(() => setMoving(p))}
-              className={`ps-thumb${dragOver === `post:${p.id}` ? ' over' : ''}`}
+              className={`ps-thumb${dragOver === `post:${p.id}` ? ' over' : ''}${selected.has(p.id) ? ' picked' : ''}`}
               style={{ animationDelay: `${i * 0.04}s` }}
-              draggable
+              draggable={!selecting}
               onDragStart={(e) => onDrag(e, p.id)}
-              onClick={() => setOpenId(p.id)}
+              onClick={() => (selecting ? toggleSelect(p.id) : setOpenId(p.id))}
               {...dropZone(`post:${p.id}`)}
             >
               {p.photos[0] && <img src={p.photos[0].url} alt="" loading="lazy" draggable={false} />}
@@ -277,6 +360,19 @@ export default function PostsView() {
             <p>{scheduled.filter((p) => p.post_on! <= days[WEEK_DAYS - 1]).length} planned. Empty days are free slots.</p>
           </div>
         </div>
+        {(() => {
+          const earlier = scheduled.filter((p) => p.post_on! < today)
+          return earlier.length ? (
+            <div className="ps-earlier">
+              <span>
+                <b>{earlier.length}</b> post{earlier.length === 1 ? '' : 's'} planned for earlier days {earlier.length === 1 ? 'is' : 'are'} still here.
+              </span>
+              <button className="btn-brass" disabled={!!busy} onClick={() => bulk(earlier.map((p) => p.id), 'posted')}>
+                ✓ Mark as posted
+              </button>
+            </div>
+          ) : null
+        })()}
         <div className="ps-week">
           {days.map((day) => {
             const onDay = scheduled.filter((p) => p.post_on === day)
@@ -285,8 +381,20 @@ export default function PostsView() {
               <div key={day} className={`ps-day${onDay.length ? '' : ' free'}${day === today ? ' today' : ''}${dragOver === day ? ' over' : ''}`} {...dropZone(day)}>
                 <span className="ps-day-name">{day === today ? 'Today' : name}</span>
                 <span className="ps-day-num">{num}</span>
+                {onDay.length > 0 && (
+                  <button className="ps-day-done" disabled={!!busy} onClick={() => bulk(onDay.map((p) => p.id), 'posted')} title="Mark everything on this day as posted">
+                    ✓ All posted
+                  </button>
+                )}
                 {onDay.map((p) => (
-                  <button key={p.id} {...pressHandlers(() => setMoving(p))} className="ps-day-post" draggable onDragStart={(e) => onDrag(e, p.id)} onClick={() => setOpenId(p.id)}>
+                  <button
+                    key={p.id}
+                    {...pressHandlers(() => setMoving(p))}
+                    className={`ps-day-post${selected.has(p.id) ? ' picked' : ''}`}
+                    draggable={!selecting}
+                    onDragStart={(e) => onDrag(e, p.id)}
+                    onClick={() => (selecting ? toggleSelect(p.id) : setOpenId(p.id))}
+                  >
                     {p.photos[0] && <img src={p.photos[0].url} alt="" draggable={false} />}
                   </button>
                 ))}

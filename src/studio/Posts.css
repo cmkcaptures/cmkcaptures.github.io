@@ -189,3 +189,16 @@
 .ss-how b { color: #fff; }
 .ss-over { border-color: #38d6ec; box-shadow: 0 0 0 2px #38d6ec55 inset; }
 .ss-done { color: #34d399 !important; }
+.ps-selbar, .ps-earlier { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; padding: 10px 12px; font-size: 13px; color: #b7c2d6; background: #3b82f614; border: 1px solid #3b82f655; border-radius: 12px; animation: st-pop .25s ease both; }
+.ps-selbar > span, .ps-earlier > span { flex: 1; min-width: 160px; }
+.ps-selbar b, .ps-earlier b { color: #fff; }
+.ps-earlier { background: #fbbf2412; border-color: #fbbf2455; }
+.ps-clearall { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: #b7c2d6; }
+.ps-link { padding: 0; font: 600 12px Inter, sans-serif; color: #8a97ad; background: none; border: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ps-link:hover { color: #fff; }
+.ps-sel-on { color: #fff !important; border-color: #38d6ec !important; background: #38d6ec1a !important; }
+.ps-thumb.picked, .ps-day-post.picked { border-color: #38d6ec; box-shadow: 0 0 0 2px #38d6ec88; }
+.ps-thumb.picked::after, .ps-day-post.picked::after { content: '✓'; position: absolute; top: 6px; left: 6px; display: grid; place-items: center; width: 22px; height: 22px; font: 800 12px Inter, sans-serif; color: #05080f; background: #38d6ec; border-radius: 50%; }
+.ps-day-post { position: relative; }
+.ps-day-done { width: 100%; padding: 4px 6px; font: 700 10px Inter, sans-serif; color: #34d399; background: #34d39914; border: 1px solid #34d39944; border-radius: 8px; cursor: pointer; }
+.ps-day-done:hover { background: #34d39926; }
