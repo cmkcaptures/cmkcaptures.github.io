@@ -185,3 +185,7 @@
 .mv-list em { font: 700 10px Inter, sans-serif; font-style: normal; letter-spacing: .06em; text-transform: uppercase; color: #38d6ec; }
 .mv-cancel { width: 100%; margin-top: 10px; padding: 14px; font: 600 15px Inter, sans-serif; color: #8a97ad; background: none; border: 1px solid #ffffff1a; border-radius: 14px; cursor: pointer; }
 .bd-cards > div[draggable], .ps-thumb, .ps-day-post { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.ss-how { padding: 10px 12px; font-size: 13px; line-height: 1.5; color: #b7c2d6; background: #070b14; border: 1px dashed #38d6ec44; border-radius: 12px; margin-bottom: 10px; }
+.ss-how b { color: #fff; }
+.ss-over { border-color: #38d6ec; box-shadow: 0 0 0 2px #38d6ec55 inset; }
+.ss-done { color: #34d399 !important; }
