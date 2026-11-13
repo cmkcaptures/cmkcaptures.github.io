@@ -1,7 +1,10 @@
 // Edit Lab: match any look. Shows the Lightroom moves (most impactful first), a live preview, and a preset to download.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Look, Pixels, Recipe } from './look'
-import { loadPixels, makeRecipe, measure, presetXmp, render, scaleRecipe, steps } from './look'
+import { describeLook, loadPixels, makeRecipe, measure, mixLooks, presetXmp, render, scaleRecipe, steps } from './look'
+import type { SavedLook } from './looksApi'
+import { deleteLook, listLooks, saveLook, thumbFrom } from './looksApi'
+import { sandyWrite } from '../studio/sandyWrite'
 import { readRaw } from '../cull/raw'
 import { download } from '../cull/folder'
 import './EditLab.css'
@@ -12,8 +15,9 @@ interface Slot {
   name: string
   url: string
   look: Look
-  pixels: Pixels
+  pixels: Pixels | null // null when the reference comes from your saved looks
   raw: boolean
+  savedId?: string
 }
 
 /** Turns a RAW into its (correctly rotated) built-in JPEG, or passes images through. */
@@ -79,6 +83,39 @@ export default function EditLab() {
   const [full, setFull] = useState(false)
   const canvas = useRef<HTMLCanvasElement>(null)
   const before = useRef<HTMLCanvasElement>(null)
+  const [library, setLibrary] = useState<SavedLook[]>([])
+  const [naming, setNaming] = useState<string | null>(null)
+  const [mixId, setMixId] = useState('')
+  const [mixAmount, setMixAmount] = useState(30)
+  const [question, setQuestion] = useState('')
+  const [answer, setAnswer] = useState<string | null>(null)
+  const [asking, setAsking] = useState(false)
+
+  useEffect(() => {
+    listLooks().then(setLibrary).catch(() => {})
+  }, [])
+
+  function useSaved(s: SavedLook) {
+    setRef({ name: s.name, url: s.thumb, look: s.look, pixels: null, raw: false, savedId: s.id })
+    setMixId('')
+  }
+
+  async function keepLook() {
+    if (!ref || !naming?.trim()) return
+    try {
+      const saved = await saveLook(naming.trim(), ref.look, await thumbFrom(ref.url))
+      setLibrary((l) => [saved, ...l])
+      setRef({ ...ref, name: saved.name, savedId: saved.id })
+      setNaming(null)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function forget(id: string) {
+    setLibrary((l) => l.filter((x) => x.id !== id))
+    deleteLook(id).catch(() => {})
+  }
 
   async function pick(which: 'ref' | 'mine', f: File) {
     setError('')
@@ -93,19 +130,32 @@ export default function EditLab() {
     setBusy(null)
   }
 
-  const recipe: Recipe | null = useMemo(() => (ref && mine ? makeRecipe(mine.look, ref.look) : null), [ref, mine])
+  const mixWith = library.find((l) => l.id === mixId)
+  const target = useMemo(() => (ref ? (mixWith ? mixLooks([{ look: ref.look, weight: 100 - mixAmount }, { look: mixWith.look, weight: mixAmount }]) : ref.look) : null), [ref, mixWith, mixAmount])
+  const recipe: Recipe | null = useMemo(() => (target && mine ? makeRecipe(mine.look, target) : null), [target, mine])
+
+  async function ask(q = question) {
+    if (!q.trim() || !scaled || !mine || !target) return
+    setAsking(true)
+    setAnswer(null)
+    const text = await sandyWrite(
+      `I'm matching my photo to a reference look in Lightroom. My photo: ${describeLook(mine.look)}. Reference${mixWith ? ` (mixed ${100 - mixAmount}% ${ref?.name} / ${mixAmount}% ${mixWith.name})` : ''}: ${describeLook(target)}. The recipe worked out: ${list.map((s) => `${s.title} (${s.moves.join(', ')})`).join('; ')}. My question: ${q}. Answer like an experienced nightlife photographer and Lightroom editor: specific sliders, masks or techniques, short and practical.`,
+    )
+    setAnswer(text ?? "Couldn't reach Sandy right now. Try again in a moment.")
+    setAsking(false)
+  }
   const scaled = useMemo(() => (recipe ? scaleRecipe(recipe, strength / 100) : null), [recipe, strength])
   const list = useMemo(() => (scaled ? steps(scaled) : []), [scaled])
 
   useEffect(() => {
     if (!mine || !scaled || !canvas.current || !before.current) return
-    const { w, h } = mine.pixels
+    const { w, h } = mine.pixels!
     for (const c of [canvas.current, before.current]) {
       c.width = w
       c.height = h
     }
-    before.current.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(mine.pixels.data), w, h), 0, 0)
-    const id = requestAnimationFrame(() => canvas.current?.getContext('2d')!.putImageData(render(mine.pixels, scaled), 0, 0))
+    before.current.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(mine.pixels!.data), w, h), 0, 0)
+    const id = requestAnimationFrame(() => canvas.current?.getContext('2d')!.putImageData(render(mine.pixels!, scaled), 0, 0))
     return () => cancelAnimationFrame(id)
   }, [mine, scaled])
 
@@ -116,6 +166,7 @@ export default function EditLab() {
   }
 
   const shown = full ? list : list.slice(0, 4)
+  const quickAsks = ['Why does the reference look softer?', 'How do I get the glow on the lights?', 'What masks would make this closer?', 'Is my photo even a good match for this look?']
   const quickShare = list.length ? Math.round((list.slice(0, 4).reduce((a, s) => a + s.impact, 0) / Math.max(0.01, list.reduce((a, s) => a + s.impact, 0))) * 100) : 0
 
   return (
@@ -128,6 +179,41 @@ export default function EditLab() {
         <Drop label="Your photo" hint="RAW off the card or a half-edited export" slot={mine} busy={busy === 'mine'} onFile={(f) => pick('mine', f)} />
       </div>
       {error && <p className="gr-error">{error}</p>}
+
+      <section className="lb-lib">
+        <div className="lb-lib-head">
+          <b>Your looks</b>
+          {ref && !ref.savedId && ref.pixels && (naming === null ? (
+            <button className="st-ghost" onClick={() => setNaming(ref.name.replace(/\.[^.]+$/, ''))}>
+              ★ Save this look
+            </button>
+          ) : (
+            <span className="lb-name">
+              <input value={naming} onChange={(e) => setNaming(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && keepLook()} placeholder="Name it, e.g. Alex night blue" autoFocus />
+              <button className="btn-brass" onClick={keepLook} disabled={!naming.trim()}>
+                Save
+              </button>
+            </span>
+          ))}
+        </div>
+        {library.length === 0 ? (
+          <p className="lb-lib-empty">Save a reference as a look and reuse it on any photo, mix it with another, or pre-edit a whole shoot with it in Auto-cull.</p>
+        ) : (
+          <div className="lb-lib-row">
+            {library.map((l) => (
+              <div key={l.id} className={`lb-look${ref?.savedId === l.id ? ' on' : ''}`}>
+                <button onClick={() => useSaved(l)} title={`Use ${l.name}`}>
+                  <img src={l.thumb} alt="" />
+                  <span>{l.name}</span>
+                </button>
+                <i role="button" aria-label={`Delete ${l.name}`} onClick={() => forget(l.id)}>
+                  ×
+                </i>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {!recipe && (
         <div className="lb-empty">
@@ -161,9 +247,9 @@ export default function EditLab() {
                   <canvas
                     ref={(c) => {
                       if (c && mine) {
-                        c.width = mine.pixels.w
-                        c.height = mine.pixels.h
-                        c.getContext('2d')!.putImageData(render(mine.pixels, scaled), 0, 0)
+                        c.width = mine.pixels!.w
+                        c.height = mine.pixels!.h
+                        c.getContext('2d')!.putImageData(render(mine.pixels!, scaled), 0, 0)
                       }
                     }}
                   />
@@ -171,8 +257,29 @@ export default function EditLab() {
                 </figure>
                 <figure>
                   <img src={ref.url} alt="" />
-                  <figcaption>Reference</figcaption>
+                  <figcaption>{mixWith ? `Reference (mixed with ${mixWith.name})` : 'Reference'}</figcaption>
                 </figure>
+              </div>
+            )}
+            {ref && library.some((l) => l.id !== ref.savedId) && (
+              <div className="lb-mix">
+                <span>Mix in</span>
+                <select value={mixId} onChange={(e) => setMixId(e.target.value)} aria-label="Look to mix in">
+                  <option value="">nothing</option>
+                  {library
+                    .filter((l) => l.id !== ref.savedId)
+                    .map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                </select>
+                {mixWith && (
+                  <label>
+                    <b>{100 - mixAmount}%</b> {ref.name} / <b>{mixAmount}%</b> {mixWith.name}
+                    <input type="range" min={0} max={100} step={5} value={mixAmount} onChange={(e) => setMixAmount(+e.target.value)} />
+                  </label>
+                )}
               </div>
             )}
             <label className="lb-strength">
@@ -217,6 +324,29 @@ export default function EditLab() {
               <button className="btn-brass" onClick={savePreset}>
                 ⬇ Lightroom preset
               </button>
+            </div>
+            <div className="lb-ask">
+              <b>✦ Ask Sandy about this edit</b>
+              <div className="lb-ask-chips">
+                {quickAsks.map((q) => (
+                  <button key={q} onClick={() => (setQuestion(q), ask(q))} disabled={asking}>
+                    {q}
+                  </button>
+                ))}
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  ask()
+                }}
+              >
+                <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask anything about getting this look…" />
+                <button className="st-ghost" disabled={asking || !question.trim()}>
+                  {asking ? '…' : 'Ask'}
+                </button>
+              </form>
+              {asking && <p className="lb-note st-loading">Sandy is looking at both photos…</p>}
+              {answer && <p className="lb-answer">{answer}</p>}
             </div>
             <small className="lb-note">
               Import in Lightroom: Develop › Presets › + › Import Presets. Use the preset's Amount slider to dial it in.{mine.raw ? ' White balance is left to you (step above) because RAWs use absolute Kelvin.' : ''}

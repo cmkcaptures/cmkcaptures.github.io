@@ -44,12 +44,14 @@ export interface OutputReport {
 }
 
 /** Sidecars as plain files (for browsers that can't write into the folder). */
-export function sidecarFiles(shots: Shot[], style: StyleProfile | null | undefined, skip: Set<string>): { name: string; text: string }[] {
+export type Edits = Map<string, { attrs: string; inner: string }>
+
+export function sidecarFiles(shots: Shot[], style: StyleProfile | null | undefined, skip: Set<string>, edits?: Edits): { name: string; text: string }[] {
   return shots
     .map((s) => {
       const v = s.mine ?? s.verdict
       const name = s.name.replace(/\.[^.]+$/, '.xmp')
-      const edit = style && v !== 'reject' ? styleFor(style, s.features.bright) : undefined
+      const edit = v === 'reject' ? undefined : (edits?.get(s.name) ?? (style ? styleFor(style, s.features.bright) : undefined))
       return { name, text: xmp(RATING[v], v === 'pick' ? 'Green' : v === 'maybe' ? 'Yellow' : '', edit) }
     })
     .filter((f) => !skip.has(f.name.toLowerCase()))
@@ -58,7 +60,7 @@ export function sidecarFiles(shots: Shot[], style: StyleProfile | null | undefin
 export async function writeResults(
   dir: FileSystemDirectoryHandle,
   shots: Shot[],
-  opts: { sidecars: boolean; copyPicks: boolean; includeMaybes: boolean; style?: StyleProfile | null },
+  opts: { sidecars: boolean; copyPicks: boolean; includeMaybes: boolean; style?: StyleProfile | null; edits?: Edits },
   progress: (text: string) => void,
 ): Promise<OutputReport> {
   const report: OutputReport = { sidecars: 0, skipped: 0, copied: 0 }
@@ -73,7 +75,7 @@ export async function writeResults(
         continue
       }
       const v = final(s)
-      const edit = opts.style && v !== 'reject' ? styleFor(opts.style, s.features.bright) : undefined
+      const edit = v === 'reject' ? undefined : (opts.edits?.get(s.name) ?? (opts.style ? styleFor(opts.style, s.features.bright) : undefined))
       await write(dir, name, xmp(RATING[v], v === 'pick' ? 'Green' : v === 'maybe' ? 'Yellow' : '', edit))
       report.sidecars++
     }

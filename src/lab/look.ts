@@ -517,3 +517,44 @@ ${curve}
 </x:xmpmeta>
 `
 }
+
+/** The recipe as Lightroom settings for a photo's own sidecar (used when pre-editing a whole shoot). */
+export function recipeCrs(r: Recipe): { attrs: string; inner: string } {
+  const sign = (v: number) => (v > 0 ? `+${v}` : `${v}`)
+  const attrs = [
+    `crs:Version="15.0"`,
+    `crs:ProcessVersion="15.4"`,
+    `crs:HasSettings="True"`,
+    `crs:WhiteBalance="As Shot"`,
+    `crs:Exposure2012="${r.exposure > 0 ? '+' : ''}${r.exposure.toFixed(2)}"`,
+    `crs:Contrast2012="${sign(r.contrast)}"`,
+    `crs:Highlights2012="${sign(r.highlights)}"`,
+    `crs:Shadows2012="${sign(r.shadows)}"`,
+    `crs:Whites2012="${sign(r.whites)}"`,
+    `crs:Blacks2012="${sign(r.blacks)}"`,
+    `crs:Clarity2012="${sign(r.clarity)}"`,
+    `crs:Vibrance="${sign(r.vibrance)}"`,
+    ...BANDS.flatMap((b) => [`crs:HueAdjustment${b}="${sign(r.hsl[b].hue)}"`, `crs:SaturationAdjustment${b}="${sign(r.hsl[b].sat)}"`, `crs:LuminanceAdjustment${b}="${sign(r.hsl[b].lum)}"`]),
+    `crs:ColorGradeShadowHue="${r.grade.shadows.hue}"`,
+    `crs:ColorGradeShadowSat="${r.grade.shadows.sat}"`,
+    `crs:ColorGradeHighlightHue="${r.grade.highlights.hue}"`,
+    `crs:ColorGradeHighlightSat="${r.grade.highlights.sat}"`,
+    `crs:ColorGradeBlending="50"`,
+    `crs:PostCropVignetteAmount="${sign(r.vignette)}"`,
+    `crs:PostCropVignetteMidpoint="50"`,
+    `crs:PostCropVignetteFeather="60"`,
+    `crs:PostCropVignetteStyle="1"`,
+    `crs:GrainAmount="${r.grain}"`,
+    `crs:ToneCurveName2012="Custom"`,
+  ].join('\n    ')
+  const inner = `   <crs:ToneCurvePV2012>\n    <rdf:Seq>\n${r.curve.map(([x, y]) => `     <rdf:li>${x}, ${y}</rdf:li>`).join('\n')}\n    </rdf:Seq>\n   </crs:ToneCurvePV2012>`
+  return { attrs, inner }
+}
+
+/** A short text summary of a look, for Sandy. */
+export function describeLook(l: Look): string {
+  const top = BANDS.filter((b) => l.bands[b].share > 0.03)
+    .sort((a, b) => l.bands[b].share - l.bands[a].share)
+    .slice(0, 3)
+  return `median brightness ${Math.round(l.q[4])}/255, blacks at ${Math.round(l.q[0])}, whites at ${Math.round(l.q[8])}, ${l.yb > 0.02 ? 'warm' : l.yb < -0.02 ? 'cool' : 'neutral'} cast, saturation ${Math.round(l.sat * 100)}%, main colours ${top.join(', ') || 'muted'}, ${l.vignette < 0.8 ? 'strong vignette' : l.vignette < 0.95 ? 'light vignette' : 'no vignette'}, ${l.grain > 6 ? 'visible grain' : 'clean'}`
+}

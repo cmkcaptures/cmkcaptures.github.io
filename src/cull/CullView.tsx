@@ -7,6 +7,10 @@ import { decide, learnTaste, TASTE_KEYS, zFeatures } from './decide'
 import { sidecarFiles, writeResults } from './output'
 import { canWriteFolders, download, pickFolder } from './folder'
 import { makeZip } from './zip'
+import type { Edits } from './output'
+import type { SavedLook } from '../lab/looksApi'
+import { listLooks } from '../lab/looksApi'
+import { loadPixels, makeRecipe, measure, recipeCrs } from '../lab/look'
 import type { StyleProfile, StyleSample } from './style'
 import { combineLooks, learnStyle, loadStyle, measureLook, parseXmp, referenceNudge, saveStyle } from './style'
 import './Cull.css'
@@ -37,6 +41,33 @@ export default function CullView() {
   const [target, setTarget] = useState(MIN_KEEPERS)
   const [taste, setTaste] = useState<Taste>({})
   const [opts, setOpts] = useState({ sidecars: true, copyPicks: true, includeMaybes: false, applyStyle: true })
+  const [looks, setLooks] = useState<SavedLook[]>([])
+  const [lookId, setLookId] = useState('')
+  const fileMap = useRef(new Map<string, File>())
+  useEffect(() => {
+    listLooks().then(setLooks).catch(() => {})
+  }, [])
+
+  /** Per-photo recipes that take each keeper to a saved look. */
+  async function lookEdits(): Promise<Edits | undefined> {
+    const target = looks.find((l) => l.id === lookId)
+    if (!target) return undefined
+    const edits: Edits = new Map()
+    const keep = shots.filter((s) => (s.mine ?? s.verdict) !== 'reject')
+    for (const [i, s] of keep.entries()) {
+      setProgress((p) => ({ ...p, text: `Matching ${target.name}: ${i + 1}/${keep.length}` }))
+      const file = fileMap.current.get(s.name)
+      if (!file) continue
+      try {
+        const info = await readRaw(file)
+        if (!info.preview) continue
+        edits.set(s.name, recipeCrs(makeRecipe(measure(await loadPixels(info.preview, 360)), target.look)))
+      } catch {
+        // Skip a photo we can't read; it keeps its rating.
+      }
+    }
+    return edits
+  }
   const [style, setStyle] = useState<StyleProfile | null>(null)
   const [teaching, setTeaching] = useState('')
 
@@ -119,6 +150,7 @@ export default function CullView() {
     try {
       const picked = await pickFolder('readwrite', 'cull')
       const files = picked.files.filter((f) => RAW_EXT.test(f.name))
+      fileMap.current = new Map(files.map((f) => [f.name, f]))
       setFolder({ name: picked.name, existing: new Set(picked.files.filter((f) => /\.xmp$/i.test(f.name)).map((f) => f.name.toLowerCase())) })
       const handle = picked.handle
       if (!files.length) throw new Error('No RAW or JPEG files in that folder. Pick the folder with your .ARW files.')
@@ -224,15 +256,16 @@ export default function CullView() {
       const changed = shots.filter((s) => s.mine && s.mine !== s.verdict && s.mine !== 'maybe')
       if (changed.length) await supabase?.from('cull_feedback').insert(changed.map((s) => ({ z: zFeatures(s.features, norms), kept: s.mine === 'pick' })))
       let r = { sidecars: 0, skipped: 0, copied: 0 }
-      if (dir) r = await writeResults(dir, shots, { ...opts, style: opts.applyStyle ? style : null }, (text) => setProgress((p) => ({ ...p, text })))
+      const edits = opts.sidecars ? await lookEdits() : undefined
+      if (dir) r = await writeResults(dir, shots, { ...opts, style: opts.applyStyle ? style : null, edits }, (text) => setProgress((p) => ({ ...p, text })))
       else if (opts.sidecars) {
-        const files = sidecarFiles(shots, opts.applyStyle ? style : null, folder.existing)
+        const files = sidecarFiles(shots, opts.applyStyle ? style : null, folder.existing, edits)
         download(makeZip(files), `${folder.name}-lightroom.zip`)
         r = { sidecars: files.length, skipped: shots.length - files.length, copied: 0 }
       }
       setReport(
         [
-          opts.sidecars && `${r.sidecars} Lightroom ratings${opts.applyStyle && style ? ' + your edit' : ''} written${r.skipped ? ` (${r.skipped} already had one, left alone)` : ''}`,
+          opts.sidecars && `${r.sidecars} Lightroom ratings${lookId ? ` + "${looks.find((l) => l.id === lookId)?.name}" look` : opts.applyStyle && style ? ' + your edit' : ''} written${r.skipped ? ` (${r.skipped} already had one, left alone)` : ''}`,
           opts.copyPicks && dir && `${r.copied} keepers copied to the Picks folder`,
           !dir && opts.sidecars && 'Unzip the download into your shoot folder (next to the .ARW files), then import into Lightroom',
           changed.length ? `Sandy learned from ${changed.length} of your calls` : '',
@@ -434,9 +467,22 @@ export default function CullView() {
           <label>
             <input type="checkbox" checked={opts.includeMaybes} onChange={(e) => setOpts({ ...opts, includeMaybes: e.target.checked })} /> Include maybes
           </label>
-          {style && (
+          {style && !lookId && (
             <label>
               <input type="checkbox" checked={opts.applyStyle} disabled={!opts.sidecars} onChange={(e) => setOpts({ ...opts, applyStyle: e.target.checked })} /> ✦ Pre-edit in my style
+            </label>
+          )}
+          {looks.length > 0 && (
+            <label className="cu-look">
+              ✦ Match a saved look
+              <select value={lookId} disabled={!opts.sidecars} onChange={(e) => setLookId(e.target.value)}>
+                <option value="">off</option>
+                {looks.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
             </label>
           )}
         </div>
