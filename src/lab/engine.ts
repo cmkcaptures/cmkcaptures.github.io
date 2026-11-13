@@ -73,7 +73,68 @@ export interface Prepared {
   lin: Float32Array // linear rgb
   ex: Float32Array // x position -1..1 (for vignette)
   ey: Float32Array
+  dC: Float32Array // mid-size detail (what Clarity works on)
+  dT: Float32Array // fine detail (what Texture works on)
 }
+
+/** Separable box blur (fast). */
+function boxBlur(src: Float32Array, w: number, h: number, r: number): Float32Array {
+  if (r < 1) return Float32Array.from(src)
+  const tmp = new Float32Array(w * h)
+  const out = new Float32Array(w * h)
+  for (let y = 0; y < h; y++) {
+    let acc = 0
+    let cnt = 0
+    for (let x = -r; x < w; x++) {
+      const add = x + r
+      if (add < w) {
+        acc += src[y * w + add]
+        cnt++
+      }
+      const rem = x - r - 1
+      if (rem >= 0) {
+        acc -= src[y * w + rem]
+        cnt--
+      }
+      if (x >= 0) tmp[y * w + x] = acc / cnt
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let acc = 0
+    let cnt = 0
+    for (let y = -r; y < h; y++) {
+      const add = y + r
+      if (add < h) {
+        acc += tmp[add * w + x]
+        cnt++
+      }
+      const rem = y - r - 1
+      if (rem >= 0) {
+        acc -= tmp[rem * w + x]
+        cnt--
+      }
+      if (y >= 0) out[y * w + x] = acc / cnt
+    }
+  }
+  return out
+}
+
+const clarityRadius = (w: number, h: number) => Math.max(2, Math.round(Math.max(w, h) * 0.04))
+
+/** Detail layers from a lightness map: mid-size (clarity) and fine (texture). */
+function details(L: Float32Array, w: number, h: number): { dC: Float32Array; dT: Float32Array } {
+  const bC = boxBlur(L, w, h, clarityRadius(w, h))
+  const bT = boxBlur(L, w, h, 1)
+  const dC = new Float32Array(L.length)
+  const dT = new Float32Array(L.length)
+  for (let i = 0; i < L.length; i++) {
+    dC[i] = L[i] - bC[i]
+    dT[i] = L[i] - bT[i]
+  }
+  return { dC, dT }
+}
+
+const linToL = (r: number, g: number, b: number) => 116 * fLab(0.2126 * r + 0.7152 * g + 0.0722 * b) - 16
 
 export function prepare(px: Pixels, maxSide = 160, calib?: Calibration | null): Prepared {
   const s = Math.min(1, maxSide / Math.max(px.w, px.h))
@@ -102,7 +163,10 @@ export function prepare(px: Pixels, maxSide = 160, calib?: Calibration | null): 
       ex[o] = (x - w / 2) / (w / 2)
       ey[o] = (y - h / 2) / (h / 2)
     }
-  return { w, h, lin, ex, ey }
+  const Ls = new Float32Array(w * h)
+  for (let i = 0; i < w * h; i++) Ls[i] = linToL(lin[i * 3], lin[i * 3 + 1], lin[i * 3 + 2])
+  const { dC, dT } = details(Ls, w, h)
+  return { w, h, lin, ex, ey, dC, dT }
 }
 
 // ---------------- the Lightroom model ----------------
@@ -117,6 +181,8 @@ export interface Params {
   hsl: Record<Band, { hue: number; sat: number; lum: number }>
   grade: Record<'shadows' | 'midtones' | 'highlights', { hue: number; sat: number }>
   vignette: number // -100..100
+  clarity: number // -100..100 (negative = softer)
+  texture: number // -100..100 (negative = smoother skin)
 }
 
 export function blankParams(): Params {
@@ -135,6 +201,8 @@ export function blankParams(): Params {
     hsl,
     grade: { shadows: { hue: 0, sat: 0 }, midtones: { hue: 0, sat: 0 }, highlights: { hue: 0, sat: 0 } },
     vignette: 0,
+    clarity: 0,
+    texture: 0,
   }
 }
 
@@ -143,7 +211,7 @@ const HSL_HUE = 0.3 // degrees per Lightroom hue unit
 const HSL_LUM = 0.16 // Lab L per Lightroom lum unit (at full chroma)
 
 /** Runs the model on one pixel (linear rgb in), returns Lab. */
-function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: number, k: number, r: number, g: number, b: number, ex: number, ey: number, bw: Float32Array): [number, number, number] {
+function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: number, k: number, r: number, g: number, b: number, ex: number, ey: number, bw: Float32Array, dc = 0, dt = 0): [number, number, number] {
   r *= wbR * k
   g *= wbG * k
   b *= wbB * k
@@ -163,6 +231,8 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
   let C = Math.hypot(A, B)
   let H = (Math.atan2(B, A) * 180) / Math.PI
   if (H < 0) H += 360
+  // Clarity (mid-size contrast) and Texture (fine detail): negative values give the soft, creamy look
+  if (p.clarity || p.texture) L += (p.clarity / 100) * dc * 0.9 * smooth(L, 8, 28) * (1 - smooth(L, 82, 97)) + (p.texture / 100) * dt * 1.1
   // Saturation + vibrance (vibrance favours low-chroma colours and protects skin)
   C *= 1 + p.saturation / 100
   const skinish = H > 20 && H < 75 ? 0.5 : 1
@@ -226,7 +296,7 @@ function renderLab(src: Prepared, p: Params): Float32Array {
   const k = 2 ** p.exposure
   const bw = new Float32Array(8)
   for (let i = 0; i < n; i++) {
-    const [L, A, B] = apply(p, lut, wr, wg, wb, k, src.lin[i * 3], src.lin[i * 3 + 1], src.lin[i * 3 + 2], src.ex[i], src.ey[i], bw)
+    const [L, A, B] = apply(p, lut, wr, wg, wb, k, src.lin[i * 3], src.lin[i * 3 + 1], src.lin[i * 3 + 2], src.ex[i], src.ey[i], bw, src.dC[i], src.dT[i])
     out[i * 3] = L
     out[i * 3 + 1] = A
     out[i * 3 + 2] = B
@@ -242,6 +312,15 @@ export function renderImage(px: Pixels, p: Params, calib?: Calibration | null): 
   const [wr, wg, wb] = wbGains(p)
   const k = 2 ** p.exposure
   const bw = new Float32Array(8)
+  const Ls = new Float32Array(w * h)
+  for (let j = 0; j < w * h; j++) {
+    const c = calib
+    const rr = c ? c.r[data[j * 4]] : data[j * 4]
+    const gg = c ? c.g[data[j * 4 + 1]] : data[j * 4 + 1]
+    const bb = c ? c.b[data[j * 4 + 2]] : data[j * 4 + 2]
+    Ls[j] = linToL(toLin[rr | 0], toLin[gg | 0], toLin[bb | 0])
+  }
+  const det = p.clarity || p.texture ? details(Ls, w, h) : null
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4
@@ -253,7 +332,8 @@ export function renderImage(px: Pixels, p: Params, calib?: Calibration | null): 
         g = calib.g[g]
         b = calib.b[b]
       }
-      const [L, A, B] = apply(p, lut, wr, wg, wb, k, toLin[r | 0], toLin[g | 0], toLin[b | 0], (x - w / 2) / (w / 2), (y - h / 2) / (h / 2), bw)
+      const o = y * w + x
+      const [L, A, B] = apply(p, lut, wr, wg, wb, k, toLin[r | 0], toLin[g | 0], toLin[b | 0], (x - w / 2) / (w / 2), (y - h / 2) / (h / 2), bw, det ? det.dC[o] : 0, det ? det.dT[o] : 0)
       const [R, G, Bl] = labToLin(L, A, B)
       img.data[i] = fromLin(R)
       img.data[i + 1] = fromLin(G)
@@ -275,10 +355,12 @@ export interface Descriptor {
   bands: { c: number; L: number; h: number; w: number }[] // colour by hue band
   skin: { L: number; a: number; b: number; w: number }
   chroma: number[] // chroma quantiles
+  clarity?: number // average mid-size local contrast (lower = softer)
+  texture?: number // average fine detail (lower = smoother)
   vignette: number
 }
 
-export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: Float32Array): Descriptor {
+export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: Float32Array, w?: number, h?: number): Descriptor {
   // Histograms instead of sorting: much faster, same quantiles to 0.25 L / 0.5 C.
   const hL = new Uint32Array(401)
   const hC = new Uint32Array(301)
@@ -354,13 +436,32 @@ export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: F
     skin: skin.w ? { L: skin.L / skin.w, a: skin.a / skin.w, b: skin.b / skin.w, w: skin.w / n } : { L: 0, a: 0, b: 0, w: 0 },
     chroma: [0.25, 0.5, 0.75, 0.9, 0.97].map((p) => hq(hC, p, 2)),
     vignette: centreN && edgeN ? edge / edgeN / Math.max(1, centre / centreN) : 1,
+    ...(w && h ? detailStats(lab, w, h) : {}),
   }
+}
+
+/** How soft or crisp the photo is (people-weighted midtones). */
+function detailStats(lab: Float32Array, w: number, h: number): { clarity: number; texture: number } {
+  const L = new Float32Array(w * h)
+  for (let i = 0; i < w * h; i++) L[i] = lab[i * 3]
+  const { dC, dT } = details(L, w, h)
+  let c = 0
+  let t = 0
+  let n = 0
+  for (let i = 0; i < w * h; i++) {
+    if (L[i] < 12 || L[i] > 92) continue
+    c += Math.abs(dC[i])
+    t += Math.abs(dT[i])
+    n++
+  }
+  return n ? { clarity: c / n, texture: t / n } : { clarity: 0, texture: 0 }
 }
 
 /** Measures a finished photo (the reference). */
 export function measureRef(px: Pixels): Descriptor {
-  const prep = prepare(px, 220)
-  return describe(renderLab(prep, blankParams()), prep.w * prep.h, prep.ex, prep.ey)
+  // Same working size as the solver, so softness is measured on the same scale.
+  const prep = prepare(px, 110)
+  return describe(renderLab(prep, blankParams()), prep.w * prep.h, prep.ex, prep.ey, prep.w, prep.h)
 }
 
 /** Averages several references into one style (weights optional). */
@@ -388,6 +489,8 @@ export function blend(list: { d: Descriptor; w: number }[]): Descriptor {
     skin: { L: mw((d) => d.skin.L, (d) => d.skin.w), a: mw((d) => d.skin.a, (d) => d.skin.w), b: mw((d) => d.skin.b, (d) => d.skin.w), w: m((d) => d.skin.w) },
     chroma: [0, 1, 2, 3, 4].map((i) => m((d) => d.chroma[i])),
     vignette: m((d) => d.vignette),
+    clarity: list.every((x) => x.d.clarity !== undefined) ? m((d) => d.clarity ?? 0) : undefined,
+    texture: list.every((x) => x.d.texture !== undefined) ? m((d) => d.texture ?? 0) : undefined,
   }
 }
 
@@ -418,6 +521,9 @@ export function distance(x: Descriptor, t: Descriptor): number {
   if (x.skin.w > 0.01 && t.skin.w > 0.01) e += 8 * (((x.skin.L - t.skin.L) / 5) ** 2 + ((x.skin.a - t.skin.a) / 2.5) ** 2 + ((x.skin.b - t.skin.b) / 2.5) ** 2)
   for (let i = 0; i < 5; i++) e += ((x.chroma[i] - t.chroma[i]) / 6) ** 2
   e += ((x.vignette - t.vignette) / 0.08) ** 2
+  // Softness: how crisp mid-size and fine detail are (compared as ratios)
+  if (x.clarity !== undefined && t.clarity !== undefined) e += 1.5 * (Math.log((x.clarity + 0.3) / (t.clarity + 0.3)) / 0.12) ** 2
+  if (x.texture !== undefined && t.texture !== undefined) e += (Math.log((x.texture + 0.2) / (t.texture + 0.2)) / 0.12) ** 2
   return e
 }
 
@@ -454,13 +560,14 @@ function penalty(p: Params): number {
   for (const z of ['shadows', 'midtones', 'highlights'] as const) e += (p.grade[z].sat / 35) ** 2
   // Curve: bends far from a straight line cost more
   for (const [x, y] of p.curve) e += 0.15 * ((y - x) / 60) ** 2
+  e += (p.clarity / 70) ** 2 + (p.texture / 70) ** 2
   return e * 4
 }
 
 /** Finds the Lightroom settings that take `src` closest to `target`. */
-export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) => void, passCount = 4): FitResult {
+export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) => void, passCount = 3): FitResult {
   const n = src.w * src.h
-  const measureP = (p: Params) => describe(renderLab(src, p), n, src.ex, src.ey)
+  const measureP = (p: Params) => describe(renderLab(src, p), n, src.ex, src.ey, src.w, src.h)
   const look = (p: Params) => distance(measureP(p), target)
   const loss = (p: Params) => look(p) + penalty(p)
   let p = blankParams()
@@ -522,6 +629,8 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     }
   }
   p.vignette = clamp((target.vignette - d4.vignette) / 0.0055, -60, 30)
+  if (d4.clarity !== undefined && target.clarity !== undefined) p.clarity = clamp((target.clarity / Math.max(0.2, d4.clarity) - 1) * 90, -70, 50)
+  if (d4.texture !== undefined && target.texture !== undefined) p.texture = clamp((target.texture / Math.max(0.15, d4.texture) - 1) * 90, -70, 50)
   onProgress?.(0.3)
 
   // 4. Joint refinement: coordinate search over every control, keeping whatever lowers the error.
@@ -533,6 +642,8 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     { get: (q) => q.saturation, set: (q, v) => (q.saturation = v), step: 8, lo: -70, hi: 70 },
     { get: (q) => q.vibrance, set: (q, v) => (q.vibrance = v), step: 10, lo: -60, hi: 60 },
     { get: (q) => q.vignette, set: (q, v) => (q.vignette = v), step: 10, lo: -70, hi: 40 },
+    { get: (q) => q.clarity, set: (q, v) => (q.clarity = v), step: 10, lo: -80, hi: 60 },
+    { get: (q) => q.texture, set: (q, v) => (q.texture = v), step: 10, lo: -80, hi: 60 },
   ]
   for (const z of ['shadows', 'midtones', 'highlights'] as const) {
     knobs.push({ get: (q) => q.grade[z].sat, set: (q, v) => (q.grade[z].sat = v), step: 8, lo: 0, hi: 70 })
@@ -574,6 +685,8 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
   p.saturation = Math.round(p.saturation)
   p.vibrance = Math.round(p.vibrance)
   p.vignette = Math.round(p.vignette)
+  p.clarity = Math.round(p.clarity)
+  p.texture = Math.round(p.texture)
   for (const b of BANDS) p.hsl[b] = { hue: Math.round(p.hsl[b].hue), sat: Math.round(p.hsl[b].sat), lum: Math.round(p.hsl[b].lum) }
   for (const z of ['shadows', 'midtones', 'highlights'] as const) p.grade[z] = { hue: Math.round(p.grade[z].hue), sat: Math.round(p.grade[z].sat) }
   return { params: p, before, after: look(p) }
@@ -592,12 +705,14 @@ export function scaleParams(p: Params, s: number): Params {
   for (const b of BANDS) q.hsl[b] = { hue: Math.round(m(p.hsl[b].hue)), sat: Math.round(m(p.hsl[b].sat)), lum: Math.round(m(p.hsl[b].lum)) }
   for (const z of ['shadows', 'midtones', 'highlights'] as const) q.grade[z] = { hue: p.grade[z].hue, sat: Math.round(m(p.grade[z].sat)) }
   q.vignette = Math.round(m(p.vignette))
+  q.clarity = Math.round(m(p.clarity))
+  q.texture = Math.round(m(p.texture))
   return q
 }
 
 /** Measures how close a given set of settings gets (for the live score as Strength changes). */
 export function scoreFor(src: Prepared, p: Params, target: Descriptor): number {
-  return matchScore(distance(describe(renderLab(src, p), src.w * src.h, src.ex, src.ey), target))
+  return matchScore(distance(describe(renderLab(src, p), src.w * src.h, src.ex, src.ey, src.w, src.h), target))
 }
 
 /** Same settings in the older Recipe shape, so steps, presets and sidecars keep working. */
@@ -617,7 +732,8 @@ export function toRecipe(p: Params): Recipe {
     hsl: p.hsl,
     grade: p.grade,
     vignette: p.vignette,
-    clarity: 0,
+    clarity: p.clarity,
+    texture: p.texture,
     grain: 0,
   }
 }

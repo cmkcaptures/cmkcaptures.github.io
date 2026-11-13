@@ -210,6 +210,7 @@ export interface Recipe {
   curve: [number, number][] // tone curve points after exposure
   vibrance: number
   saturation?: number
+  texture?: number
   hsl: Record<Band, { hue: number; sat: number; lum: number }>
   grade: { shadows: { hue: number; sat: number }; highlights: { hue: number; sat: number }; midtones?: { hue: number; sat: number } }
   vignette: number
@@ -292,6 +293,7 @@ export function scaleRecipe(r: Recipe, s: number): Recipe {
     },
     vignette: Math.round(r.vignette * s),
     clarity: Math.round(r.clarity * s),
+    texture: Math.round((r.texture ?? 0) * s),
     grain: Math.round(r.grain * s),
   }
 }
@@ -379,7 +381,7 @@ export function steps(r: Recipe): Step[] {
       why: `The reference pushes ${g.shadows.sat >= 5 ? `${hueName(g.shadows.hue)} into the shadows` : ''}${g.shadows.sat >= 5 && g.highlights.sat >= 5 ? ' and ' : ''}${g.highlights.sat >= 5 ? `${hueName(g.highlights.hue)} into the highlights` : ''}. That's the signature colour of the look.`,
       impact: Math.min(1, (g.shadows.sat + g.highlights.sat) / 50),
     })
-  const fx = [Math.abs(r.clarity) >= 8 ? `Clarity ${sgn(r.clarity)}` : '', Math.abs(r.vignette) >= 8 ? `Vignette ${sgn(r.vignette)}` : '', r.grain >= 10 ? `Grain ${r.grain}` : ''].filter(Boolean)
+  const fx = [Math.abs(r.texture ?? 0) >= 8 ? `Texture ${sgn(r.texture ?? 0)}` : '', Math.abs(r.clarity) >= 8 ? `Clarity ${sgn(r.clarity)}` : '', Math.abs(r.vignette) >= 8 ? `Vignette ${sgn(r.vignette)}` : '', r.grain >= 10 ? `Grain ${r.grain}` : ''].filter(Boolean)
   if (fx.length) out.push({ panel: 'Effects', title: 'Finishing touches', moves: fx, why: 'Texture and edges. Small, but they sell the style.', impact: Math.min(1, (Math.abs(r.clarity) + Math.abs(r.vignette) + r.grain) / 150) })
   return out.sort((a, b) => b.impact - a.impact)
 }
@@ -551,6 +553,7 @@ ${wb}
     crs:Whites2012="0"
     crs:Blacks2012="0"
     crs:Clarity2012="${r.clarity}"
+    crs:Texture="${r.texture ?? 0}"
     crs:Vibrance="${r.vibrance}"
     crs:Saturation="${r.saturation ?? 0}"
     crs:ColorGradeMidtoneHue="${r.grade.midtones?.hue ?? 0}"
@@ -606,6 +609,7 @@ export function recipeCrs(r: Recipe): { attrs: string; inner: string } {
     `crs:Whites2012="0"`,
     `crs:Blacks2012="0"`,
     `crs:Clarity2012="${sign(r.clarity)}"`,
+    `crs:Texture="${sign(r.texture ?? 0)}"`,
     `crs:Vibrance="${sign(r.vibrance)}"`,
     `crs:Saturation="${sign(r.saturation ?? 0)}"`,
     `crs:ColorGradeMidtoneHue="${r.grade.midtones?.hue ?? 0}"`,
