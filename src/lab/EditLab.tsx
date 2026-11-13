@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Pixels } from './look'
 import { loadPixels, mergeRecipe, presetXmp, steps } from './look'
 import type { Calibration, Descriptor, FitResult, Params } from './engine'
-import { blend, describeText, learnCalibration, matchScore, measureRef, prepare, renderImage, sameShot, scaleParams, scoreFor, toRecipe, blownShare } from './engine'
+import { withPeople } from './segment'
+import { blend, distance, describeText, learnCalibration, matchScore, measureRef, prepare, renderImage, sameShot, scaleParams, scoreFor, toRecipe, blownShare } from './engine'
 import type { SavedLook } from './looksApi'
 import { deleteLook, listLooks, saveLook, thumbFrom } from './looksApi'
 import { clearCalibration, loadCalibration, saveCalibration } from './calibration'
@@ -40,7 +41,7 @@ async function toImageBlob(file: File): Promise<{ blob: Blob; raw: boolean }> {
 
 async function toShot(file: File, max = 900): Promise<Shot> {
   const { blob, raw } = await toImageBlob(file)
-  return { name: file.name, url: URL.createObjectURL(blob), pixels: await loadPixels(blob, max), raw }
+  return { name: file.name, url: URL.createObjectURL(blob), pixels: await withPeople(await loadPixels(blob, max)), raw }
 }
 
 /** Runs the solver in a background worker. */
@@ -163,6 +164,20 @@ export default function EditLab() {
   const recipe = useMemo(() => (params ? toRecipe(params) : null), [params])
   const list = useMemo(() => (recipe ? steps(recipe) : []), [recipe])
   const prep = useMemo(() => (mine ? prepare(mine.pixels, 110, useCalib) : null), [mine, useCalib])
+  // Smart reference check: is one of your saved looks a much closer lighting match for this photo?
+  const mineLook = useMemo(() => (mine ? measureRef(mine.pixels) : null), [mine])
+  const closer = useMemo(() => {
+    if (!mineLook || !target || !library.length) return null
+    const now = matchScore(distance(mineLook, target))
+    let best: { look: SavedLook; score: number } | null = null
+    for (const l of library) {
+      const d = l.look as unknown as Descriptor
+      if (!d || (d as { v?: number }).v !== 2 || l.id === savedRef?.id) continue
+      const s = matchScore(distance(mineLook, d))
+      if (!best || s > best.score) best = { look: l, score: s }
+    }
+    return best && best.score >= now + 15 ? best : null
+  }, [mineLook, target, library, savedRef])
   const liveScore = useMemo(() => (prep && params && target ? scoreFor(prep, params, target) : null), [prep, params, target])
 
   // Draw the preview (same model the preset is built from).
@@ -398,6 +413,13 @@ export default function EditLab() {
                   <i className="a" style={{ width: `${liveScore}%` }} />
                 </div>
                 {mine && blownShare(mine.pixels) > 0.02 && <small>⚠ Part of your subject is blown out (pure white) in the original, usually flash too strong or too close. No edit can bring that detail back, so those bits stay white. Next time: lower the flash power or bounce it.</small>}
+                {mine?.pixels.seg && <small className="lb-ok">👤 People found: matching skin to skin and person to person</small>}
+                {closer && (
+                  <small className="lb-suggest">
+                    💡 Your saved look <b>{closer.look.name}</b> has much closer lighting to this photo.{' '}
+                    <button onClick={() => useSaved(closer.look)}>Use it instead</button>
+                  </small>
+                )}
                 {liveScore !== null && liveScore < 70 && <small>Below 70% usually means the lighting differs (flash vs ambient, colour of the venue lights). Ask Sandy what to change on the shoot.</small>}
               </div>
               <div className="lb-view-tabs">

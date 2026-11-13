@@ -125,3 +125,7 @@
 .lb-scorebar i.b { z-index: 1; background: #ffffff33; }
 .lb-look-blank { display: block; width: 120px; height: 90px; background: linear-gradient(135deg, #a855f744, #0b111d); border-radius: 10px; }
 .lb-still b { color: #fff; }
+
+.lb-score small.lb-ok { color: #6ee7b7; }
+.lb-score small.lb-suggest { color: #c4b5fd; }
+.lb-score small.lb-suggest button { margin-left: 6px; padding: 2px 10px; border-radius: 999px; border: 1px solid #a78bfa; background: transparent; color: #ddd6fe; font: inherit; cursor: pointer; }

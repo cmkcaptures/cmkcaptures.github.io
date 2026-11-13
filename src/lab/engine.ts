@@ -80,6 +80,8 @@ export interface Prepared {
   ey: Float32Array
   dC: Float32Array // mid-size detail (what Clarity works on)
   dT: Float32Array // fine detail (what Texture works on)
+  pm?: Float32Array // person map (0..1), when people were found
+  sk?: Float32Array // skin map (0..1)
 }
 
 /** Separable box blur (fast). */
@@ -171,7 +173,20 @@ export function prepare(px: Pixels, maxSide = 160, calib?: Calibration | null): 
   const Ls = new Float32Array(w * h)
   for (let i = 0; i < w * h; i++) Ls[i] = linToL(lin[i * 3], lin[i * 3 + 1], lin[i * 3 + 2])
   const { dC, dT } = details(Ls, w, h)
-  return { w, h, lin, ex, ey, dC, dT }
+  let pm: Float32Array | undefined
+  let sk: Float32Array | undefined
+  if (px.seg) {
+    const g = px.seg
+    pm = new Float32Array(w * h)
+    sk = new Float32Array(w * h)
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const j = Math.min(g.h - 1, Math.floor((y / h) * g.h)) * g.w + Math.min(g.w - 1, Math.floor((x / w) * g.w))
+        pm[y * w + x] = g.person[j]
+        sk[y * w + x] = g.skin[j]
+      }
+  }
+  return { w, h, lin, ex, ey, dC, dT, pm, sk }
 }
 
 // ---------------- the Lightroom model ----------------
@@ -422,7 +437,7 @@ export interface Descriptor {
   vignette: number
 }
 
-export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: Float32Array, w?: number, h?: number): Descriptor {
+export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: Float32Array, w?: number, h?: number, pm?: Float32Array, sk?: Float32Array): Descriptor {
   // Histograms instead of sorting: much faster, same quantiles to 0.25 L / 0.5 C.
   const hL = new Uint32Array(401)
   const hC = new Uint32Array(301)
@@ -440,7 +455,8 @@ export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: F
     const b = lab[i * 3 + 2]
     const C = Math.hypot(a, b)
     // Subject first: the middle of the frame (where people usually are) counts more than the edges.
-    const sw = ex && ey ? 1 + 1.5 * (1 - smooth(Math.hypot(ex[i], ey[i] * 0.8), 0.3, 0.85)) : 1
+    // With a person map, the actual people count most; otherwise fall back to "middle of the frame".
+    const sw = pm ? 1 + 2.5 * pm[i] : ex && ey ? 1 + 1.5 * (1 - smooth(Math.hypot(ex[i], ey[i] * 0.8), 0.3, 0.85)) : 1
     hL[clamp(Math.round(L * 4), 0, 400)]++
     hC[clamp(Math.round(C * 2), 0, 300)]++
     let z = 0
@@ -464,7 +480,8 @@ export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: F
         }
     }
     // Skin: warm hues, moderate chroma, mid lightness
-    if (H > 18 && H < 75 && C > 5 && C < 60 && L > 6 && L < 90) {
+    // Skin: from the skin map when we have one (fixed from the original photo), else warm hues, moderate chroma, mid lightness
+    if (sk ? sk[i] > 0.5 && L > 4 : H > 18 && H < 75 && C > 5 && C < 60 && L > 6 && L < 90) {
       skin.L += L * sw
       skin.a += a * sw
       skin.b += b * sw
@@ -523,7 +540,7 @@ function detailStats(lab: Float32Array, w: number, h: number): { clarity: number
 export function measureRef(px: Pixels): Descriptor {
   // Same working size as the solver, so softness is measured on the same scale.
   const prep = prepare(px, 110)
-  return describe(renderLab(prep, blankParams()), prep.w * prep.h, prep.ex, prep.ey, prep.w, prep.h)
+  return describe(renderLab(prep, blankParams()), prep.w * prep.h, prep.ex, prep.ey, prep.w, prep.h, prep.pm, prep.sk)
 }
 
 /** Averages several references into one style (weights optional). */
@@ -647,7 +664,20 @@ function penalty(p: Params): number {
 /** Finds the Lightroom settings that take `src` closest to `target`. */
 export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) => void, passCount = 3): FitResult {
   const n = src.w * src.h
-  const measureP = (p: Params) => describe(renderLab(src, p), n, src.ex, src.ey, src.w, src.h)
+  // Skin is decided once, from the untouched photo: an edit can't turn a bandage, shirt or wall into "skin".
+  let skinMap = src.sk
+  if (!skinMap) {
+    const base = renderLab(src, blankParams())
+    skinMap = new Float32Array(n)
+    for (let i = 0; i < n; i++) {
+      const L = base[i * 3]
+      const C = Math.hypot(base[i * 3 + 1], base[i * 3 + 2])
+      let H = (Math.atan2(base[i * 3 + 2], base[i * 3 + 1]) * 180) / Math.PI
+      if (H < 0) H += 360
+      skinMap[i] = H > 18 && H < 75 && C > 5 && C < 60 && L > 6 && L < 90 ? 1 : 0
+    }
+  }
+  const measureP = (p: Params) => describe(renderLab(src, p), n, src.ex, src.ey, src.w, src.h, src.pm, skinMap)
   const look = (p: Params) => distance(measureP(p), target)
   // Skin guard: whatever the reference looks like, a person's skin lightness stays where it is in their own photo.
   const own = measureP(blankParams())

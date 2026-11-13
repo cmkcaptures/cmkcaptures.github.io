@@ -19,10 +19,19 @@ export interface Look {
 
 export const Q = [0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99]
 
+/** Where the people and their skin are (0..1 per pixel, at the map's own size). */
+export interface Seg {
+  w: number
+  h: number
+  person: Float32Array
+  skin: Float32Array
+}
+
 export interface Pixels {
   w: number
   h: number
   data: Uint8ClampedArray
+  seg?: Seg
 }
 
 export async function loadPixels(blob: Blob, max = 640): Promise<Pixels> {
