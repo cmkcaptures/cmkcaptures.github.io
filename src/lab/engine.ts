@@ -402,7 +402,7 @@ export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: F
         }
     }
     // Skin: warm hues, moderate chroma, mid lightness
-    if (H > 18 && H < 72 && C > 8 && C < 55 && L > 18 && L < 88) {
+    if (H > 18 && H < 75 && C > 5 && C < 60 && L > 6 && L < 90) {
       skin.L += L * sw
       skin.a += a * sw
       skin.b += b * sw
@@ -499,7 +499,8 @@ export function blend(list: { d: Descriptor; w: number }[]): Descriptor {
 export function distance(x: Descriptor, t: Descriptor): number {
   let e = 0
   // Tone: the shape of the whole histogram
-  for (let i = 0; i < LQ.length; i++) e += ((x.L[i] - t.L[i]) / 6) ** 2
+  for (let i = 0; i < LQ.length; i++) e += ((x.L[i] - x.L[8] - (t.L[i] - t.L[8])) / 6) ** 2
+  e += ((x.L[8] - t.L[8]) / 16) ** 2
   // Colour cast by tone zone
   for (let z = 0; z < 5; z++) {
     const w = Math.min(1, (x.zones[z].w + t.zones[z].w) * 4)
@@ -515,10 +516,17 @@ export function distance(x: Descriptor, t: Descriptor): number {
     const w = Math.min(1, Math.min(a.w, b.w) * 20) * (Math.min(a.w, b.w) / Math.max(a.w, b.w)) ** 0.5
     let dh = Math.abs(a.h - b.h)
     if (dh > 180) dh = 360 - dh
-    e += w * (((a.c - b.c) / 6) ** 2 + ((a.L - b.L) / 8) ** 2 + (dh / 10) ** 2)
+    // Band lightness is compared relative to each photo's own midtone (so bright clothes or walls don't relight people)
+    e += w * (((a.c - b.c) / 6) ** 2 + ((a.L - x.L[8] - (b.L - t.L[8])) / 14) ** 2 + (dh / 10) ** 2)
   }
   // Skin matters most in people photos
-  if (x.skin.w > 0.01 && t.skin.w > 0.01) e += 8 * (((x.skin.L - t.skin.L) / 5) ** 2 + ((x.skin.a - t.skin.a) / 2.5) ** 2 + ((x.skin.b - t.skin.b) / 2.5) ** 2)
+  if (x.skin.w > 0.01 && t.skin.w > 0.01) {
+    const hue = (s: { a: number; b: number }) => (Math.atan2(s.b, s.a) * 180) / Math.PI
+    let dh = Math.abs(hue(x.skin) - hue(t.skin))
+    if (dh > 180) dh = 360 - dh
+    const rich = (s: { L: number; a: number; b: number }) => Math.hypot(s.a, s.b) / Math.max(10, s.L)
+    e += 8 * ((dh / 4) ** 2 + (Math.log((rich(x.skin) + 0.05) / (rich(t.skin) + 0.05)) / 0.12) ** 2)
+  }
   for (let i = 0; i < 5; i++) e += ((x.chroma[i] - t.chroma[i]) / 6) ** 2
   e += ((x.vignette - t.vignette) / 0.08) ** 2
   // Softness: how crisp mid-size and fine detail are (compared as ratios)
@@ -569,16 +577,40 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
   const n = src.w * src.h
   const measureP = (p: Params) => describe(renderLab(src, p), n, src.ex, src.ey, src.w, src.h)
   const look = (p: Params) => distance(measureP(p), target)
-  const loss = (p: Params) => look(p) + penalty(p)
+  // Skin guard: whatever the reference looks like, a person's skin lightness stays where it is in their own photo.
+  const own = measureP(blankParams())
+  const ownSkin = own.skin
+  const skinGuard = (p: Params) => {
+    if (ownSkin.w < 0.01) return 0
+    const d = measureP(p)
+    const s = d.skin
+    // Skin may brighten or darken only as much as the whole photo does (an honest exposure fix), never on its own.
+    const scene = (d.L[6] + d.L[8] + d.L[10]) / 3 - (own.L[6] + own.L[8] + own.L[10]) / 3
+    return s.w > 0.005 ? 12 * ((s.L - ownSkin.L - scene) / 3) ** 2 : 0
+  }
+  const loss = (p: Params) => look(p) + penalty(p) + skinGuard(p)
+  // Hard limit: how far (in L) skin moved beyond the whole photo's own change.
+  const skinDrift = (p: Params) => {
+    if (ownSkin.w < 0.01) return 0
+    const d = measureP(p)
+    if (d.skin.w < 0.005) return 0
+    const scene = (d.L[6] + d.L[8] + d.L[10]) / 3 - (own.L[6] + own.L[8] + own.L[10]) / 3
+    return Math.abs(d.skin.L - ownSkin.L - scene)
+  }
+  const SKIN_LIMIT = 3
   let p = blankParams()
   const before = look(p)
 
   // 1. Exposure from the midtones, then the tone curve from the full histogram.
   const d0 = measureP(p)
   const lin = (L: number) => fInv((L + 16) / 116)
-  p.exposure = clamp(Math.log2(Math.max(0.002, lin(target.L[8])) / Math.max(0.002, lin(d0.L[8]))), -3, 3)
+  // Keep most of the photo's own brightness: only move a third of the way to the reference's midtone.
+  p.exposure = clamp(Math.log2(Math.max(0.002, lin(target.L[8])) / Math.max(0.002, lin(d0.L[8]))) * 0.35, -1.5, 1.5)
   const d1 = measureP(p)
-  p.curve = quantMap(d1.L, target.L)
+  // Tone curve matches the reference's contrast shape around this photo's own midpoint.
+  const shift = (d1.L[8] - target.L[8]) * 0.7
+  // Start only part of the way along the reference's curve; the solver refines from there under the skin guard.
+  p.curve = quantMap(d1.L, target.L.map((v, i) => clamp(d1.L[i] + (v + shift - d1.L[i]) * 0.4, 0, 100)))
 
   // 2. White balance from the midtones, then colour grading from what's left in each tone zone.
   const midCast = (d: Descriptor) => [(d.zones[2].a + d.zones[3].a) / 2, (d.zones[2].b + d.zones[3].b) / 2]
@@ -631,6 +663,13 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
   p.vignette = clamp((target.vignette - d4.vignette) / 0.0055, -60, 30)
   if (d4.clarity !== undefined && target.clarity !== undefined) p.clarity = clamp((target.clarity / Math.max(0.2, d4.clarity) - 1) * 90, -70, 50)
   if (d4.texture !== undefined && target.texture !== undefined) p.texture = clamp((target.texture / Math.max(0.15, d4.texture) - 1) * 90, -70, 50)
+  // Pull the starting edit back towards neutral until it respects the skin limit.
+  for (let guard = 0; guard < 14 && skinDrift(p) > SKIN_LIMIT; guard++) {
+    p.curve = p.curve.map(([x, y]) => [x, Math.round(x + (y - x) * 0.75)])
+    p.exposure *= 0.8
+    for (const b of BANDS) p.hsl[b] = { ...p.hsl[b], lum: Math.round(p.hsl[b].lum * 0.7) }
+    p.clarity *= 0.85
+  }
   onProgress?.(0.3)
 
   // 4. Joint refinement: coordinate search over every control, keeping whatever lowers the error.
@@ -668,7 +707,7 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
         kn.set(trial, clamp(cur + dir * kn.step * scale, kn.lo, kn.hi))
         trial.curve = cleanCurve(trial.curve)
         const l = loss(trial)
-        if (l < best - 1e-6) {
+        if (l < best - 1e-6 && (ownSkin.w < 0.01 || skinDrift(trial) <= Math.max(SKIN_LIMIT, skinDrift(p)))) {
           best = l
           p = trial
           break
