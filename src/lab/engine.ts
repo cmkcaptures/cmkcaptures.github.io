@@ -295,21 +295,23 @@ export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: F
     const a = lab[i * 3 + 1]
     const b = lab[i * 3 + 2]
     const C = Math.hypot(a, b)
+    // Subject first: the middle of the frame (where people usually are) counts more than the edges.
+    const sw = ex && ey ? 1 + 1.5 * (1 - smooth(Math.hypot(ex[i], ey[i] * 0.8), 0.3, 0.85)) : 1
     hL[clamp(Math.round(L * 4), 0, 400)]++
     hC[clamp(Math.round(C * 2), 0, 300)]++
     let z = 0
     while (z < 4 && L >= ZONES[z + 1]) z++
-    zone[z].a += a
-    zone[z].b += b
-    zone[z].c += C
-    zone[z].w++
+    zone[z].a += a * sw
+    zone[z].b += b * sw
+    zone[z].c += C * sw
+    zone[z].w += sw
     let H = (Math.atan2(b, a) * 180) / Math.PI
     if (H < 0) H += 360
     if (C > 8 && L > 6) {
       bandWeights(H, bw)
       for (let k = 0; k < 8; k++)
         if (bw[k]) {
-          const w = bw[k]
+          const w = bw[k] * sw
           band[k].c += C * w
           band[k].L += L * w
           band[k].hx += Math.cos((H * Math.PI) / 180) * w
@@ -319,10 +321,10 @@ export function describe(lab: Float32Array, n: number, ex?: Float32Array, ey?: F
     }
     // Skin: warm hues, moderate chroma, mid lightness
     if (H > 18 && H < 72 && C > 8 && C < 55 && L > 18 && L < 88) {
-      skin.L += L
-      skin.a += a
-      skin.b += b
-      skin.w++
+      skin.L += L * sw
+      skin.a += a * sw
+      skin.b += b * sw
+      skin.w += sw
     }
     if (ex && ey) {
       const d = Math.hypot(ex[i], ey[i])
@@ -399,7 +401,8 @@ export function distance(x: Descriptor, t: Descriptor): number {
   for (let z = 0; z < 5; z++) {
     const w = Math.min(1, (x.zones[z].w + t.zones[z].w) * 4)
     if (!w) continue
-    e += w * (((x.zones[z].a - t.zones[z].a) / 3) ** 2 + ((x.zones[z].b - t.zones[z].b) / 3) ** 2 + ((x.zones[z].c - t.zones[z].c) / 5) ** 2)
+    const zw = z < 2 ? 0.45 : 1 // dark zones are mostly background lights; count them less
+    e += zw * w * (((x.zones[z].a - t.zones[z].a) / 3) ** 2 + ((x.zones[z].b - t.zones[z].b) / 3) ** 2 + ((x.zones[z].c - t.zones[z].c) / 5) ** 2)
   }
   // Colours, band by band (only where both photos actually have that colour)
   for (let k = 0; k < 8; k++) {
@@ -412,7 +415,7 @@ export function distance(x: Descriptor, t: Descriptor): number {
     e += w * (((a.c - b.c) / 6) ** 2 + ((a.L - b.L) / 8) ** 2 + (dh / 10) ** 2)
   }
   // Skin matters most in people photos
-  if (x.skin.w > 0.01 && t.skin.w > 0.01) e += 3 * (((x.skin.L - t.skin.L) / 5) ** 2 + ((x.skin.a - t.skin.a) / 3) ** 2 + ((x.skin.b - t.skin.b) / 3) ** 2)
+  if (x.skin.w > 0.01 && t.skin.w > 0.01) e += 8 * (((x.skin.L - t.skin.L) / 5) ** 2 + ((x.skin.a - t.skin.a) / 2.5) ** 2 + ((x.skin.b - t.skin.b) / 2.5) ** 2)
   for (let i = 0; i < 5; i++) e += ((x.chroma[i] - t.chroma[i]) / 6) ** 2
   e += ((x.vignette - t.vignette) / 0.08) ** 2
   return e
@@ -443,7 +446,7 @@ export interface FitResult {
 
 /** "Keep it natural": every slider costs a little, so only clear evidence pushes one far (stops it chasing scene content). */
 function penalty(p: Params): number {
-  let e = (p.temp / 1400) ** 2 + (p.tint / 35) ** 2 + (p.saturation / 45) ** 2 + (p.vibrance / 50) ** 2 + (p.vignette / 50) ** 2
+  let e = (p.temp / 1100) ** 2 + (p.tint / 18) ** 2 + (p.saturation / 45) ** 2 + (p.vibrance / 50) ** 2 + (p.vignette / 50) ** 2
   for (const b of BANDS) {
     const v = p.hsl[b]
     e += 0.35 * ((v.hue / 35) ** 2 + (v.sat / 50) ** 2 + (v.lum / 40) ** 2)
