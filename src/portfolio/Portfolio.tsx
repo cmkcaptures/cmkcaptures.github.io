@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { portfolio } from './portfolioData'
-import { supabase } from '../supabase'
 import BookingFlow from './BookingFlow'
 import type { GalleryItem } from './portfolioData'
-import { photoUrl } from '../galleryApi'
 import './Portfolio.css'
+
+/** Responsive, light WebP versions of the built-in portfolio photos (made at 480/960/1600 wide). */
+function resp(src = ''): { src: string; srcSet?: string } {
+  if (!src.startsWith('/portfolio/') || !src.endsWith('.jpg')) return { src }
+  const v = (w: number) => src.replace(/.jpg$/, `-${w}.webp`)
+  return { src: v(960), srcSet: [480, 960, 1600].map((w) => `${v(w)} ${w}w`).join(', ') }
+}
 
 // Flip to true when pricing is locked in to show Packages to everyone.
 const PACKAGES_PUBLIC = false
@@ -53,7 +58,18 @@ export default function Portfolio() {
   const photos = [...showcase, ...portfolio.gallery.filter((g) => g.src)].slice(0, 16)
   useReveal(photos.length)
 
+  // Hero slideshow: only fetch a slide when it's showing or next up (not all 16 at once)
+  const [warm, setWarm] = useState<Set<number>>(() => new Set([0, 1]))
   useEffect(() => {
+    setWarm((w) => (w.has(slide) && w.has(slide + 1) ? w : new Set([...w, slide, slide + 1])))
+  }, [slide])
+
+  useEffect(() => {
+    // The database library loads after the page has painted, so the first view is instant.
+    let off = false
+    const go = async () => {
+      const [{ supabase }, { photoUrl }] = await Promise.all([import('../supabase'), import('../galleryApi')])
+      if (off) return
     supabase
       ?.from('reviews')
       .select('id,name,body')
@@ -66,6 +82,13 @@ export default function Portfolio() {
       .then(({ data }) =>
         setShowcase(((data ?? []) as { path: string }[]).map((p, i) => ({ src: photoUrl(p.path), label: 'Recent', variant: (i % 4) as 0 | 1 | 2 | 3 }))),
       )
+    }
+    const idle = (window as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+    if (idle) idle(() => void go(), { timeout: 1500 })
+    else setTimeout(() => void go(), 300)
+    return () => {
+      off = true
+    }
   }, [])
 
   useEffect(() => {
@@ -129,7 +152,9 @@ export default function Portfolio() {
       <section className="pf-hero" id="top" ref={heroRef}>
         <div className="pf-hero-bg" aria-hidden="true">
           {photos.map((p, i) => (
-            <img key={p.src} src={p.src} alt="" className={i === slide ? 'on' : ''} />
+            warm.has(i) ? (
+              <img key={p.src} {...resp(p.src)} sizes="100vw" alt="" decoding="async" fetchPriority={i === 0 ? 'high' : 'low'} className={i === slide ? 'on' : ''} />
+            ) : null
           ))}
         </div>
         <div className="pf-hero-inner">
@@ -194,7 +219,7 @@ export default function Portfolio() {
               onClick={() => setLightbox(i)}
               aria-label={`Open ${item.label} photo`}
             >
-              <img src={item.src} alt={`${item.label} photography by ${portfolio.name}`} loading="lazy" />
+              <img {...resp(item.src)} sizes="(max-width: 700px) 50vw, 33vw" alt={`${item.label} photography by ${portfolio.name}`} loading="lazy" decoding="async" />
               <span>{item.label}</span>
             </button>
           ))}
@@ -301,7 +326,7 @@ export default function Portfolio() {
 
       {lightbox !== null && (
         <div className="pf-lightbox" onClick={() => setLightbox(null)} role="dialog" aria-label="Photo">
-          <img key={lightbox} src={photos[lightbox].src} alt={photos[lightbox].label} onClick={(e) => e.stopPropagation()} />
+          <img key={lightbox} {...resp(photos[lightbox].src)} sizes="100vw" alt={photos[lightbox].label} onClick={(e) => e.stopPropagation()} />
           <button
             className="pf-lb-nav prev"
             onClick={(e) => {

@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 .pf {
   /* Tokens (the booking flow reads these too) */
@@ -34,6 +33,8 @@
     radial-gradient(35% 30% at 10% 90%, #0e749033, transparent 70%),
     radial-gradient(30% 30% at 50% 50%, #312e8122, transparent 70%);
   animation: pf-drift 24s ease-in-out infinite alternate;
+  will-change: transform;
+  contain: strict;
 }
 @keyframes pf-drift { to { transform: translate(4%, -3%) rotate(6deg); } }
 .pf > *:not(.pf-aurora):not(.pf-lightbox):not(.pf-float):not(.pf-nav) { position: relative; z-index: 1; }
@@ -44,7 +45,7 @@
 
 /* Nav */
 .pf-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; padding: 22px 40px; transition: background .3s, padding .3s, border-color .3s; border-bottom: 1px solid transparent; }
-.pf-nav.solid { padding: 14px 40px; background: #05080fcc; backdrop-filter: blur(14px); border-color: var(--border-hair); }
+.pf-nav.solid { padding: 14px 40px; background: #05080ff0; border-color: var(--border-hair); }
 .pf-wordmark { display: inline-flex; align-items: center; gap: 10px; font: 700 16px var(--serif); letter-spacing: .22em; color: #fff; text-decoration: none; }
 .pf-wordmark i { width: 9px; height: 9px; background: var(--cyan); border-radius: 50%; box-shadow: 0 0 12px var(--cyan); animation: pf-pulse 2.4s ease-in-out infinite; }
 @keyframes pf-pulse { 50% { opacity: .4; transform: scale(.8); } }
@@ -64,7 +65,7 @@
 .pf-cta:hover { transform: translateY(-2px); box-shadow: 0 16px 36px -12px #0ea5e9; }
 .pf-cta:hover::after { transform: translateX(100%); }
 .pf-cta.big { padding: 16px 28px; font-size: 16px; border-radius: 14px; }
-.pf-ghost { padding: 15px 24px; font: 600 15px var(--sans); color: #fff; text-decoration: none; background: #ffffff0d; border: 1px solid #ffffff2a; border-radius: 14px; backdrop-filter: blur(6px); transition: background .2s, border-color .2s; }
+.pf-ghost { padding: 15px 24px; font: 600 15px var(--sans); color: #fff; text-decoration: none; background: #ffffff0d; border: 1px solid #ffffff2a; border-radius: 14px; transition: background .2s, border-color .2s; }
 .pf-ghost:hover { background: #ffffff1a; border-color: var(--cyan); }
 
 /* Hero */
@@ -74,7 +75,7 @@
 .pf-hero-bg img.on { opacity: 1; transform: scale(1); }
 .pf-hero-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #05080f66 0%, #05080f33 35%, #05080fee 85%, #05080f 100%), linear-gradient(90deg, #05080fcc, transparent 70%); }
 .pf-hero-inner { max-width: 760px; }
-.pf-chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; font: 600 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--cyan); background: #38d6ec14; border: 1px solid #38d6ec44; border-radius: 999px; backdrop-filter: blur(6px); animation: pf-up .8s ease both; }
+.pf-chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; font: 600 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--cyan); background: #38d6ec14; border: 1px solid #38d6ec44; border-radius: 999px; animation: pf-up .8s ease both; }
 .pf-chip i { width: 7px; height: 7px; background: #34d399; border-radius: 50%; box-shadow: 0 0 10px #34d399; animation: pf-pulse 1.6s ease-in-out infinite; }
 .pf-hero h1 { margin: 22px 0 18px; font: 800 clamp(40px, 7vw, 84px)/1.02 var(--serif); letter-spacing: -.02em; }
 .pf-hero h1 span { display: inline-block; margin-right: .26em; animation: pf-up .9s cubic-bezier(.2, .8, .2, 1) both; }
@@ -157,7 +158,7 @@
 .pf-quote-dots button.on { background: var(--cyan); transform: scale(1.4); }
 
 /* Booking */
-.pf-booking { padding: 30px; background: linear-gradient(180deg, #0f1727cc, #0b111dcc); border: 1px solid var(--border-subtle); border-radius: 24px; backdrop-filter: blur(6px); }
+.pf-booking { padding: 30px; background: linear-gradient(180deg, #0f1727cc, #0b111dcc); border: 1px solid var(--border-subtle); border-radius: 24px; }
 
 /* Footer */
 .pf-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: 1200px; margin: 120px auto 0; padding: 30px 40px 40px; border-top: 1px solid var(--border-hair); }

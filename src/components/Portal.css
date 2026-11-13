@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 /* Client portal + review page in the new blue style */
 .cg, .gate-public {
@@ -8,7 +7,7 @@
   font-family: var(--sans);
 }
 .cp { position: relative; overflow-x: clip; padding-bottom: 60px; }
-.cp-aurora { position: fixed; inset: -20%; z-index: 0; pointer-events: none; background: radial-gradient(40% 35% at 80% 5%, #1d4ed844, transparent 70%), radial-gradient(35% 30% at 10% 95%, #0e749033, transparent 70%); animation: cp-drift 22s ease-in-out infinite alternate; }
+.cp-aurora { position: fixed; inset: -20%; z-index: 0; pointer-events: none; background: radial-gradient(40% 35% at 80% 5%, #1d4ed844, transparent 70%), radial-gradient(35% 30% at 10% 95%, #0e749033, transparent 70%); animation: cp-drift 22s ease-in-out infinite alternate; will-change: transform; contain: strict; }
 @keyframes cp-drift { to { transform: translate(3%, -2%) rotate(5deg); } }
 .cp > *:not(.cp-aurora):not(.cp-lightbox) { position: relative; z-index: 1; }
 .cp-head { max-width: 1100px; margin: 0 auto; padding: 28px 20px 8px; }
@@ -18,7 +17,7 @@
 .cp-head h1 small { font: 500 16px var(--sans); color: var(--text-tertiary); }
 @keyframes cp-up { from { opacity: 0; transform: translateY(18px); } }
 .cp-main { display: flex; flex-direction: column; gap: 16px; max-width: 1100px; margin: 26px auto 0; padding: 0 20px; }
-.cp-card { padding: 22px; background: linear-gradient(180deg, #0f1727e6, #0b111de6); border: 1px solid #ffffff14; border-radius: 20px; backdrop-filter: blur(6px); animation: cp-up .6s ease both; }
+.cp-card { padding: 22px; background: linear-gradient(180deg, #0f1727e6, #0b111de6); border: 1px solid #ffffff14; border-radius: 20px; animation: cp-up .6s ease both; }
 
 .cp-steps { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); }
 .cp-steps::before { content: ''; position: absolute; top: 17px; left: 12.5%; right: 12.5%; height: 3px; background: #ffffff14; border-radius: 3px; }

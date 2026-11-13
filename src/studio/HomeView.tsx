@@ -61,6 +61,16 @@ function greeting(): string {
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 }
 
+/** A ticking countdown that re-renders only itself, not the whole home screen. */
+function Countdown({ date }: { date: Date }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span className="st-count">{countdown(date, now)}</span>
+}
+
 export default function HomeView({ clients, tips, greetingName, onOpenClient, onNavigate }: Props) {
   const [now, setNow] = useState(Date.now())
   const [weekOpen, setWeekOpen] = useState(false)
@@ -73,7 +83,7 @@ export default function HomeView({ clients, tips, greetingName, onOpenClient, on
   const [eventError, setEventError] = useState('')
 
   useEffect(() => {
-    const clock = setInterval(() => setNow(Date.now()), 1000)
+    const clock = setInterval(() => setNow(Date.now()), 60000)
     const rotate = setInterval(() => setTip((t) => t + 1), 4500)
     return () => {
       clearInterval(clock)
@@ -185,7 +195,7 @@ export default function HomeView({ clients, tips, greetingName, onOpenClient, on
                   {c.type || 'Shoot'}
                   {date ? ` · ${shortDate(date)}` : ''}
                 </small>
-                {date && <span className="st-count">{countdown(date, now)}</span>}
+                {date && <Countdown date={date} />}
               </span>
               <span className={`st-pill${c.stage === 'booked' && !c.depositPaid ? ' warn' : ''}`}>
                 {c.stage === 'shot' ? 'Editing' : c.depositPaid ? 'Booked' : 'Deposit due'}
