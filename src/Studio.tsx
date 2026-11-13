@@ -22,6 +22,7 @@ import Sandy from './studio/Sandy'
 import { useSandyBrain } from './studio/sandyBrain'
 const SandyPage = lazy(() => import('./studio/SandyPage'))
 const LiveShoot = lazy(() => import('./studio/LiveShoot'))
+const EditLab = lazy(() => import('./lab/EditLab'))
 const PriceIt = lazy(() => import('./studio/PriceIt'))
 const CullView = lazy(() => import('./cull/CullView'))
 const PeopleView = lazy(() => import('./studio/PeopleView'))
@@ -43,7 +44,7 @@ import './App.css'
 import './StudioTheme.css'
 
 
-type View = 'home' | 'sandy' | 'clients' | 'outreach' | 'posts' | 'money'
+type View = 'home' | 'sandy' | 'clients' | 'outreach' | 'posts' | 'lab' | 'money'
 
 export default function Studio() {
   return (
@@ -295,6 +296,7 @@ function StudioApp() {
     { key: 'clients', label: 'Clients', icon: 'M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M22 19v-1a4 4 0 0 0-3-3.9M16 4.1a3 3 0 0 1 0 5.8', badge: followUpCount || undefined },
     { key: 'outreach', label: 'Outreach', icon: 'M22 2 11 13M22 2l-7 20-4-9-9-4z' },
     { key: 'posts', label: 'Posts', icon: 'M4 4h16v16H4zM4 15l5-5 4 4 3-3 4 4M15 8.5a1.5 1.5 0 1 0 0-.01' },
+    { key: 'lab', label: 'Edit Lab', icon: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 15h9' },
     { key: 'money', label: 'Money', icon: 'M3 6h18v12H3zM3 10h18M7 15h3' },
   ]
 
@@ -395,6 +397,8 @@ function StudioApp() {
             ]}
           />
         )}
+
+        {view === 'lab' && <Section title="Edit Lab" subtitle="Match any look. See the exact Lightroom moves, then preview your photo." tabs={[{ key: 'match', label: 'Style match', content: <EditLab /> }]} />}
 
         {view === 'posts' && (
           <Section title="Posts" subtitle="What to post next, and when." tabs={[
