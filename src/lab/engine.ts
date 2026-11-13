@@ -479,8 +479,8 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     const d = measureP(p)
     const [ca, cb] = midCast(d)
     const [ta, tb] = midCast(target)
-    p.temp = clamp(p.temp + (tb - cb) * 220, -3500, 3500)
-    p.tint = clamp(p.tint + (ta - ca) * 4.5, -80, 80)
+    p.temp = clamp(p.temp + (tb - cb) * 160, -1800, 1800)
+    p.tint = clamp(p.tint + (ta - ca) * 3, -25, 25)
   }
   const d2 = measureP(p)
   const zoneRes = (zs: number[]) => {
@@ -506,7 +506,7 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
 
   // 3. Overall saturation from the chroma distribution, then each colour band.
   const d3 = measureP(p)
-  p.saturation = clamp((target.chroma[1] / Math.max(2, d3.chroma[1]) - 1) * 100 * 0.8, -60, 60)
+  p.saturation = clamp((target.chroma[1] / Math.max(2, d3.chroma[1]) - 1) * 100 * 0.6, -30, 30)
   const d4 = measureP(p)
   for (let k = 0; k < 8; k++) {
     const a = d4.bands[k]
@@ -528,8 +528,8 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
   type Knob = { get: (p: Params) => number; set: (p: Params, v: number) => void; step: number; lo: number; hi: number }
   const knobs: Knob[] = [
     { get: (q) => q.exposure, set: (q, v) => (q.exposure = v), step: 0.15, lo: -3, hi: 3 },
-    { get: (q) => q.temp, set: (q, v) => (q.temp = v), step: 300, lo: -3500, hi: 3500 },
-    { get: (q) => q.tint, set: (q, v) => (q.tint = v), step: 8, lo: -80, hi: 80 },
+    { get: (q) => q.temp, set: (q, v) => (q.temp = v), step: 250, lo: -2500, hi: 2500 },
+    { get: (q) => q.tint, set: (q, v) => (q.tint = v), step: 6, lo: -40, hi: 40 },
     { get: (q) => q.saturation, set: (q, v) => (q.saturation = v), step: 8, lo: -70, hi: 70 },
     { get: (q) => q.vibrance, set: (q, v) => (q.vibrance = v), step: 10, lo: -60, hi: 60 },
     { get: (q) => q.vignette, set: (q, v) => (q.vignette = v), step: 10, lo: -70, hi: 40 },
