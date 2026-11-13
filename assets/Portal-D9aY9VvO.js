@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./index-Bq1RqLXJ.js";var n=t(),r=e();function i({children:e}){return(0,n.createPortal)((0,r.jsx)(`div`,{className:`app-portal`,children:e}),document.body)}export{i as t};
