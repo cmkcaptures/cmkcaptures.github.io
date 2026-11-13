@@ -1,7 +1,7 @@
 // Edit Lab: match any look. Shows the Lightroom moves (most impactful first), a live preview, and a preset to download.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Look, Pixels, Recipe } from './look'
-import { describeLook, loadPixels, makeRecipe, measure, mixLooks, presetXmp, render, scaleRecipe, steps } from './look'
+import { describeLook, loadPixels, makeRecipe, measure, mergeRecipe, mixLooks, presetXmp, render, scaleRecipe, steps } from './look'
 import type { SavedLook } from './looksApi'
 import { deleteLook, listLooks, saveLook, thumbFrom } from './looksApi'
 import { sandyWrite } from '../studio/sandyWrite'
@@ -89,6 +89,20 @@ export default function EditLab() {
   const [mixAmount, setMixAmount] = useState(30)
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<string | null>(null)
+  const [result, setResult] = useState<Slot | null>(null)
+  const [checking, setChecking] = useState(false)
+  const resultInput = useRef<HTMLInputElement>(null)
+
+  async function checkResult(f: File) {
+    setChecking(true)
+    setError('')
+    try {
+      setResult(await toSlot(f))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    setChecking(false)
+  }
   const [asking, setAsking] = useState(false)
 
   useEffect(() => {
@@ -159,6 +173,16 @@ export default function EditLab() {
     return () => cancelAnimationFrame(id)
   }, [mine, scaled])
 
+  const correction = useMemo(() => (result && target ? makeRecipe(result.look, target) : null), [result, target])
+  const remaining = useMemo(() => (correction ? steps(correction) : []), [correction])
+  const corrected = useMemo(() => (correction && scaled ? mergeRecipe(scaled, correction) : null), [correction, scaled])
+
+  function saveCorrected() {
+    if (!corrected || !ref) return
+    const name = `Match · ${ref.name.replace(/\.[^.]+$/, '')} (corrected)`
+    download(new Blob([presetXmp(name, corrected, !!mine?.raw)], { type: 'application/rdf+xml' }), `${name.replace(/[^\w ·%()-]/g, '').replace(/\s+/g, '-')}.xmp`)
+  }
+
   function savePreset() {
     if (!scaled || !ref) return
     const name = `Match · ${ref.name.replace(/\.[^.]+$/, '')}${strength < 100 ? ` ${strength}%` : ''}`
@@ -176,7 +200,7 @@ export default function EditLab() {
         <span className="lb-arrow" aria-hidden="true">
           →
         </span>
-        <Drop label="Your photo" hint="RAW off the card or a half-edited export" slot={mine} busy={busy === 'mine'} onFile={(f) => pick('mine', f)} />
+        <Drop label="Your photo" hint="Best: your photo exported untouched from Lightroom. RAWs work too." slot={mine} busy={busy === 'mine'} onFile={(f) => pick('mine', f)} />
       </div>
       {error && <p className="gr-error">{error}</p>}
 
@@ -324,6 +348,46 @@ export default function EditLab() {
               <button className="btn-brass" onClick={savePreset}>
                 ⬇ Lightroom preset
               </button>
+            </div>
+            <div className="lb-check">
+              <input ref={resultInput} type="file" accept="image/*" hidden onChange={(e) => (e.target.files?.[0] && checkResult(e.target.files[0]), (e.target.value = ''))} />
+              <b>✓ Check my result</b>
+              <small>Applied the preset? Export or screenshot what you got in Lightroom and drop it here. Sandy measures what's still off and gives you a corrected preset.</small>
+              <button className="st-ghost" onClick={() => resultInput.current?.click()} disabled={checking}>
+                {checking ? 'Measuring…' : result ? 'Check another result' : '+ Add my Lightroom result'}
+              </button>
+              {result && correction && (
+                <div className="lb-check-out">
+                  <div className="lb-check-thumbs">
+                    <figure>
+                      <img src={result.url} alt="" />
+                      <figcaption>Your result</figcaption>
+                    </figure>
+                    <figure>
+                      <img src={ref.url} alt="" />
+                      <figcaption>Target</figcaption>
+                    </figure>
+                  </div>
+                  {remaining.length === 0 ? (
+                    <p className="lb-close">You're there. Nothing meaningful left to change.</p>
+                  ) : (
+                    <>
+                      <b className="lb-still">Still to do</b>
+                      <ol className="lb-still-list">
+                        {remaining.slice(0, 4).map((s) => (
+                          <li key={s.title}>
+                            <span>{s.title}</span> <em>{s.moves.join(', ')}</em>
+                          </li>
+                        ))}
+                      </ol>
+                      <button className="btn-brass" onClick={saveCorrected}>
+                        ⬇ Corrected preset
+                      </button>
+                      <small className="lb-note">Replace the first preset with this one (don't stack them). Repeat the check if it still needs a nudge.</small>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             <div className="lb-ask">
               <b>✦ Ask Sandy about this edit</b>

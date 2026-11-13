@@ -475,11 +475,11 @@ export function presetXmp(name: string, r: Recipe, raw: boolean): string {
     crs:ProcessVersion="15.4"
 ${wb}
     crs:Exposure2012="${r.exposure > 0 ? '+' : ''}${r.exposure.toFixed(2)}"
-    crs:Contrast2012="${r.contrast}"
-    crs:Highlights2012="${r.highlights}"
-    crs:Shadows2012="${r.shadows}"
-    crs:Whites2012="${r.whites}"
-    crs:Blacks2012="${r.blacks}"
+    crs:Contrast2012="0"
+    crs:Highlights2012="0"
+    crs:Shadows2012="0"
+    crs:Whites2012="0"
+    crs:Blacks2012="0"
     crs:Clarity2012="${r.clarity}"
     crs:Vibrance="${r.vibrance}"
 ${hsl}
@@ -527,11 +527,11 @@ export function recipeCrs(r: Recipe): { attrs: string; inner: string } {
     `crs:HasSettings="True"`,
     `crs:WhiteBalance="As Shot"`,
     `crs:Exposure2012="${r.exposure > 0 ? '+' : ''}${r.exposure.toFixed(2)}"`,
-    `crs:Contrast2012="${sign(r.contrast)}"`,
-    `crs:Highlights2012="${sign(r.highlights)}"`,
-    `crs:Shadows2012="${sign(r.shadows)}"`,
-    `crs:Whites2012="${sign(r.whites)}"`,
-    `crs:Blacks2012="${sign(r.blacks)}"`,
+    `crs:Contrast2012="0"`,
+    `crs:Highlights2012="0"`,
+    `crs:Shadows2012="0"`,
+    `crs:Whites2012="0"`,
+    `crs:Blacks2012="0"`,
     `crs:Clarity2012="${sign(r.clarity)}"`,
     `crs:Vibrance="${sign(r.vibrance)}"`,
     ...BANDS.flatMap((b) => [`crs:HueAdjustment${b}="${sign(r.hsl[b].hue)}"`, `crs:SaturationAdjustment${b}="${sign(r.hsl[b].sat)}"`, `crs:LuminanceAdjustment${b}="${sign(r.hsl[b].lum)}"`]),
@@ -557,4 +557,43 @@ export function describeLook(l: Look): string {
     .sort((a, b) => l.bands[b].share - l.bands[a].share)
     .slice(0, 3)
   return `median brightness ${Math.round(l.q[4])}/255, blacks at ${Math.round(l.q[0])}, whites at ${Math.round(l.q[8])}, ${l.yb > 0.02 ? 'warm' : l.yb < -0.02 ? 'cool' : 'neutral'} cast, saturation ${Math.round(l.sat * 100)}%, main colours ${top.join(', ') || 'muted'}, ${l.vignette < 0.8 ? 'strong vignette' : l.vignette < 0.95 ? 'light vignette' : 'no vignette'}, ${l.grain > 6 ? 'visible grain' : 'clean'}`
+}
+
+/** Combines a first recipe with a correction measured from the Lightroom result, into one corrected recipe. */
+export function mergeRecipe(a: Recipe, b: Recipe): Recipe {
+  const curveA = [...a.curve].sort((p, q) => p[0] - q[0])
+  const curveB = [...b.curve].sort((p, q) => p[0] - q[0])
+  const at = (pts: [number, number][], v: number) => {
+    for (let i = 1; i < pts.length; i++)
+      if (v <= pts[i][0]) {
+        const [x0, y0] = pts[i - 1]
+        const [x1, y1] = pts[i]
+        return y0 + ((v - x0) / Math.max(1, x1 - x0)) * (y1 - y0)
+      }
+    return pts[pts.length - 1][1]
+  }
+  // The correction's exposure is folded into the curve so the first curve's anchor points still line up.
+  const kb = 2 ** b.exposure
+  const curve = curveA.map(([x, y]) => [x, Math.round(clamp(at(curveB, Math.min(255, y * kb)), 0, 255))] as [number, number])
+  const add = (x: number, y: number, lo = -100, hi = 100) => Math.round(clamp(x + y, lo, hi))
+  const hsl = {} as Recipe['hsl']
+  for (const band of BANDS) hsl[band] = { hue: add(a.hsl[band].hue, b.hsl[band].hue, -60, 60), sat: add(a.hsl[band].sat, b.hsl[band].sat), lum: add(a.hsl[band].lum, b.hsl[band].lum) }
+  const grade = (g1: { hue: number; sat: number }, g2: { hue: number; sat: number }) => (g2.sat > g1.sat ? { hue: g2.hue, sat: Math.min(80, g1.sat + g2.sat) } : { hue: g1.hue, sat: Math.min(80, g1.sat + Math.round(g2.sat / 2)) })
+  return {
+    exposure: a.exposure,
+    temp: add(a.temp, b.temp, -4000, 4000),
+    tint: add(a.tint, b.tint, -100, 100),
+    contrast: add(a.contrast, b.contrast),
+    highlights: add(a.highlights, b.highlights),
+    shadows: add(a.shadows, b.shadows),
+    whites: add(a.whites, b.whites),
+    blacks: add(a.blacks, b.blacks),
+    curve,
+    vibrance: add(a.vibrance, b.vibrance),
+    hsl,
+    grade: { shadows: grade(a.grade.shadows, b.grade.shadows), highlights: grade(a.grade.highlights, b.grade.highlights) },
+    vignette: add(a.vignette, b.vignette),
+    clarity: add(a.clarity, b.clarity),
+    grain: add(a.grain, b.grain, 0, 100),
+  }
 }

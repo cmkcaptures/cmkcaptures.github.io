@@ -84,3 +84,16 @@
 .lb-ask form { display: flex; gap: 8px; }
 .lb-ask input { flex: 1; min-width: 0; padding: 9px 11px; font: 400 13px Inter, sans-serif; color: #e8eef9; background: #070b14; border: 1px solid #ffffff22; border-radius: 10px; }
 .lb-answer { margin: 0; padding: 12px; font-size: 13px; line-height: 1.6; color: #e8eef9; white-space: pre-line; background: #070b14; border: 1px solid #38d6ec33; border-radius: 12px; }
+
+.lb-check { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; padding: 12px; background: linear-gradient(135deg, #34d39912, #070b14 60%); border: 1px solid #34d39944; border-radius: 14px; }
+.lb-check > b { font: 700 14px Sora, Inter, sans-serif; }
+.lb-check > small { font-size: 12px; line-height: 1.45; color: #8a97ad; }
+.lb-check-out { display: flex; flex-direction: column; gap: 8px; }
+.lb-check-thumbs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.lb-check-thumbs figure { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.lb-check-thumbs img { width: 100%; height: 130px; object-fit: contain; background: #000; border-radius: 8px; }
+.lb-check-thumbs figcaption { font: 600 11px Inter, sans-serif; color: #8a97ad; text-align: center; }
+.lb-still { font: 700 13px Inter, sans-serif; color: #fbbf24; }
+.lb-still-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-left: 18px; font-size: 13px; }
+.lb-still-list em { font: 600 12px ui-monospace, Consolas, monospace; font-style: normal; color: #38d6ec; }
+.lb-close { margin: 0; font-weight: 600; color: #34d399; }
