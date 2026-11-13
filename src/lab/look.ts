@@ -256,7 +256,7 @@ export function makeRecipe(from: Look, to: Look): Recipe {
     shadows: r5(clamp((delta(2) - delta(3)) * 1.1 + delta(2) * 0.6, -70, 70)),
     whites: r5(clamp(delta(8) * 0.7, -60, 60)),
     blacks: r5(clamp(delta(0) * 1.2, -70, 70)),
-    curve: [[0, Math.round(clamp(to.q[0] - after[0] * 0.5, 0, 60))], ...[1, 3, 4, 5, 7].map((i) => [Math.round(after[i]), Math.round(to.q[i])] as [number, number]), [255, Math.round(clamp(255 - (after[8] - to.q[8]), 200, 255))]],
+    curve: cleanCurve([[0, Math.round(clamp(to.q[0] - after[0] * 0.5, 0, 40))], ...[1, 3, 4, 5, 7].map((i) => [Math.round(after[i]), Math.round(to.q[i])] as [number, number]), [255, Math.round(clamp(255 - (after[8] - to.q[8]), 215, 255))]]),
     vibrance: r5(clamp((to.sat / Math.max(0.05, from.sat) - 1) * 60, -60, 60)),
     hsl,
     grade: { shadows: tintToGrade(sub(to.tones.shadows, from.tones.shadows)), highlights: tintToGrade(sub(to.tones.highlights, from.tones.highlights)) },
@@ -371,19 +371,8 @@ export function render(src: Pixels, r: Recipe): ImageData {
   const wt = r.temp / 9000
   const wg = r.tint / 250
   const gain = [1 + wt * 0.9 + wg * 0.3, 1 - wg * 0.6, 1 - wt * 0.9 + wg * 0.3]
-  // Luminance LUT from contrast/tone sliders + curve
-  const pts = [...r.curve].sort((a, b) => a[0] - b[0])
-  const curve = (v: number) => {
-    for (let i = 1; i < pts.length; i++)
-      if (v <= pts[i][0]) {
-        const [x0, y0] = pts[i - 1]
-        const [x1, y1] = pts[i]
-        return y0 + ((v - x0) / Math.max(1, x1 - x0)) * (y1 - y0)
-      }
-    return pts[pts.length - 1][1]
-  }
-  const lut = new Float32Array(256)
-  for (let v = 0; v < 256; v++) lut[v] = clamp(curve(v), 0, 255)
+  // Luminance LUT from the (smoothed) tone curve
+  const lut = curveLut(r.curve)
   const vib = 1 + r.vibrance / 150
   const shadowTint = gradeRgb(r.grade.shadows)
   const highTint = gradeRgb(r.grade.highlights)
@@ -400,15 +389,26 @@ export function render(src: Pixels, r: Recipe): ImageData {
       R *= s
       G *= s
       B *= s
-      // per-band hue/saturation/luminance
+      // Keep colour when bright channels clip (avoids hue jumps in blown lights)
+      const top = Math.max(R, G, B)
+      if (top > 1) {
+        R /= top
+        G /= top
+        B /= top
+      }
+      // per-band hue/saturation/luminance, faded out on near-greys and near-blacks so dark noise isn't recoloured
       const [hu, sa, ll] = rgbToHsl(clamp(R, 0, 1), clamp(G, 0, 1), clamp(B, 0, 1))
-      const band = r.hsl[bandOf(hu)]
-      const ns = clamp(sa * vib * (1 + band.sat / 100), 0, 1)
-      const nl = clamp(ll + (band.lum / 100) * 0.25 * ns, 0, 1)
-      ;[R, G, B] = hslToRgb((hu + band.hue + 360) % 360, ns, nl)
-      // colour grading
-      const wS = clamp((0.45 - nl) / 0.45, 0, 1)
-      const wH = clamp((nl - 0.55) / 0.45, 0, 1)
+      const weight = smooth(sa, 0.06, 0.28) * smooth(ll, 0.05, 0.18) * (1 - smooth(ll, 0.92, 0.99))
+      let nl = ll
+      if (weight > 0.01) {
+        const band = r.hsl[bandOf(hu)]
+        const ns = clamp(sa * (1 + (vib * (1 + band.sat / 100) - 1) * weight), 0, 1)
+        nl = clamp(ll + (band.lum / 100) * 0.2 * ns * weight, 0, 1)
+        ;[R, G, B] = hslToRgb((hu + band.hue * weight + 360) % 360, ns, nl)
+      }
+      // colour grading (gentle, tone-weighted)
+      const wS = smooth(0.42 - nl, 0, 0.3) * smooth(nl, 0.02, 0.1)
+      const wH = smooth(nl - 0.58, 0, 0.3)
       R += shadowTint[0] * wS + highTint[0] * wH
       G += shadowTint[1] * wS + highTint[1] * wH
       B += shadowTint[2] * wS + highTint[2] * wH
@@ -417,7 +417,7 @@ export function render(src: Pixels, r: Recipe): ImageData {
       const dy = (y - h / 2) / (h / 2)
       const v = 1 + vig * 0.6 * Math.max(0, Math.hypot(dx, dy) - 0.4)
       let gr = 0
-      if (r.grain > 0) gr = (Math.random() - 0.5) * (r.grain / 100) * 0.18
+      if (r.grain > 0) gr = (Math.random() - 0.5) * (r.grain / 100) * 0.07
       out.data[i] = clamp((R * v + gr) * 255, 0, 255)
       out.data[i + 1] = clamp((G * v + gr) * 255, 0, 255)
       out.data[i + 2] = clamp((B * v + gr) * 255, 0, 255)
@@ -426,10 +426,56 @@ export function render(src: Pixels, r: Recipe): ImageData {
   return out
 }
 
+function smooth(v: number, a: number, b: number): number {
+  const t = clamp((v - a) / (b - a), 0, 1)
+  return t * t * (3 - 2 * t)
+}
+
+/** Makes a tone curve safe: always rising, no harsh kinks, never crushing the shadows into blocks. */
+export function cleanCurve(points: [number, number][]): [number, number][] {
+  const pts = [...points].sort((a, b) => a[0] - b[0]).filter((p, i, all) => i === 0 || p[0] - all[i - 1][0] >= 8)
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1]
+    const dx = pts[i][0] - x0
+    // slope kept between 0.45 and 2.2 so nothing collapses to flat black or explodes
+    pts[i] = [pts[i][0], Math.round(clamp(pts[i][1], y0 + dx * 0.45, y0 + dx * 2.2))]
+  }
+  return pts.map(([x, y]) => [x, clamp(y, 0, 255)] as [number, number])
+}
+
+/** Smooth (monotone cubic) curve lookup table, the same shape Lightroom draws through the points. */
+export function curveLut(points: [number, number][]): Float32Array {
+  const p = cleanCurve(points)
+  const n = p.length
+  const lut = new Float32Array(256)
+  if (n < 2) {
+    for (let v = 0; v < 256; v++) lut[v] = v
+    return lut
+  }
+  const d: number[] = []
+  for (let i = 0; i < n - 1; i++) d.push((p[i + 1][1] - p[i][1]) / Math.max(1, p[i + 1][0] - p[i][0]))
+  const m: number[] = [d[0]]
+  for (let i = 1; i < n - 1; i++) m.push(d[i - 1] * d[i] <= 0 ? 0 : (d[i - 1] + d[i]) / 2)
+  m.push(d[n - 2])
+  for (let v = 0; v < 256; v++) {
+    let i = 0
+    while (i < n - 2 && v > p[i + 1][0]) i++
+    const [x0, y0] = p[i]
+    const [x1, y1] = p[i + 1]
+    const hgt = Math.max(1, x1 - x0)
+    const t = clamp((v - x0) / hgt, 0, 1)
+    const t2 = t * t
+    const t3 = t2 * t
+    const val = (2 * t3 - 3 * t2 + 1) * y0 + (t3 - 2 * t2 + t) * hgt * m[i] + (-2 * t3 + 3 * t2) * y1 + (t3 - t2) * hgt * m[i + 1]
+    lut[v] = clamp(v < x0 ? y0 : v > p[n - 1][0] ? p[n - 1][1] : val, 0, 255)
+  }
+  return lut
+}
+
 function gradeRgb(g: { hue: number; sat: number }): [number, number, number] {
   if (!g.sat) return [0, 0, 0]
   const [r, gg, b] = hslToRgb(g.hue, 1, 0.5)
-  const a = (g.sat / 100) * 0.18
+  const a = (g.sat / 100) * 0.12
   return [(r - 0.5) * a, (gg - 0.5) * a, (b - 0.5) * a]
 }
 
@@ -588,7 +634,7 @@ export function mergeRecipe(a: Recipe, b: Recipe): Recipe {
     shadows: add(a.shadows, b.shadows),
     whites: add(a.whites, b.whites),
     blacks: add(a.blacks, b.blacks),
-    curve,
+    curve: cleanCurve(curve),
     vibrance: add(a.vibrance, b.vibrance),
     hsl,
     grade: { shadows: grade(a.grade.shadows, b.grade.shadows), highlights: grade(a.grade.highlights, b.grade.highlights) },
