@@ -219,6 +219,11 @@ const HSL_LUM = 0.16 // Lab L per Lightroom lum unit (at full chroma)
 function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: number, k: number, r: number, g: number, b: number, ex: number, ey: number, bw: Float32Array, dc = 0, dt = 0): [number, number, number] {
   // Blown-out pixels (already pure white in the photo) carry no colour or detail: keep them white, never paint them.
   const blown = smooth(Math.min(r, g, b), 0.86, 0.97)
+  // How colourful this pixel is in the untouched photo (before any white balance)
+  const sA = 0.4124 * r + 0.3576 * g + 0.1805 * b
+  const sY = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  const sZ = 0.0193 * r + 0.1192 * g + 0.9505 * b
+  const C0 = sY > 1e-5 ? 100 * Math.hypot(sA / 0.95047 / sY - 1, sZ / 1.08883 / sY - 1) * Math.cbrt(sY) * 0.55 : 0
   r *= wbR * k
   g *= wbG * k
   b *= wbB * k
@@ -229,7 +234,6 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
     b /= top
   }
   let [L, A, B] = linToLab(r, g, b)
-  const C0 = Math.hypot(A, B)
   // Tone curve on lightness (gamma-encoded domain), chroma follows a little so lifted shadows don't go grey.
   const L0 = L
   L = lut[clamp(Math.round(L * 2.55), 0, 255)] / 2.55
@@ -293,7 +297,8 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
     L += (Math.max(L, 97) - L) * blown
   }
   // No edit may more than roughly double a colour's strength (stops stacked boosts frying skin)
-  const cap = Math.max(C0 * 1.8, C0 + 18)
+  // Whites and pale tones may only warm slightly (creamy), never turn into a colour
+  const cap = Math.max(C0 * 1.8, C0 + 5 + 13 * (1 - smooth(L, 55, 88)) * smooth(C0, 3, 12))
   const Cn = Math.hypot(A, B)
   if (Cn > cap) {
     A *= cap / Cn
