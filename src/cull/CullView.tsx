@@ -66,7 +66,7 @@ export default function CullView() {
       try {
         const info = await readRaw(file)
         if (!info.preview) continue
-        const res = fit(prepare(await loadPixels(info.preview, 240), 72, calibRef.current), target.look as unknown as Descriptor, undefined, 1)
+        const res = fit(prepare(await loadPixels(info.preview, 240), 110, calibRef.current), target.look as unknown as Descriptor, undefined, 1)
         edits.set(s.name, recipeCrs(toRecipe(res.params)))
         await new Promise((r) => setTimeout(r, 0))
       } catch {
