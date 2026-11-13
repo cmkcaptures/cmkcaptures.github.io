@@ -10,7 +10,10 @@ import { makeZip } from './zip'
 import type { Edits } from './output'
 import type { SavedLook } from '../lab/looksApi'
 import { listLooks } from '../lab/looksApi'
-import { loadPixels, makeRecipe, measure, recipeCrs } from '../lab/look'
+import { loadPixels, recipeCrs } from '../lab/look'
+import type { Calibration, Descriptor } from '../lab/engine'
+import { fit, prepare, toRecipe } from '../lab/engine'
+import { loadCalibration } from '../lab/calibration'
 import type { StyleProfile, StyleSample } from './style'
 import { combineLooks, learnStyle, loadStyle, measureLook, parseXmp, referenceNudge, saveStyle } from './style'
 import './Cull.css'
@@ -44,8 +47,10 @@ export default function CullView() {
   const [looks, setLooks] = useState<SavedLook[]>([])
   const [lookId, setLookId] = useState('')
   const fileMap = useRef(new Map<string, File>())
+  const calibRef = useRef<Calibration | null>(null)
   useEffect(() => {
-    listLooks().then(setLooks).catch(() => {})
+    listLooks().then((l) => setLooks(l.filter((x) => (x.look as unknown as Descriptor).v === 2))).catch(() => {})
+    loadCalibration().then((c) => (calibRef.current = c)).catch(() => {})
   }, [])
 
   /** Per-photo recipes that take each keeper to a saved look. */
@@ -61,7 +66,9 @@ export default function CullView() {
       try {
         const info = await readRaw(file)
         if (!info.preview) continue
-        edits.set(s.name, recipeCrs(makeRecipe(measure(await loadPixels(info.preview, 360)), target.look)))
+        const res = fit(prepare(await loadPixels(info.preview, 240), 72, calibRef.current), target.look as unknown as Descriptor, undefined, 1)
+        edits.set(s.name, recipeCrs(toRecipe(res.params)))
+        await new Promise((r) => setTimeout(r, 0))
       } catch {
         // Skip a photo we can't read; it keeps its rating.
       }

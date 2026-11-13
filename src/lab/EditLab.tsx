@@ -1,26 +1,27 @@
-// Edit Lab: match any look. Shows the Lightroom moves (most impactful first), a live preview, and a preset to download.
+// Edit Lab v2: match any look with a model of Lightroom and a solver, calibrated to how Lightroom renders your camera.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Look, Pixels, Recipe } from './look'
-import { describeLook, loadPixels, makeRecipe, measure, mergeRecipe, mixLooks, presetXmp, render, scaleRecipe, steps } from './look'
+import type { Pixels } from './look'
+import { loadPixels, mergeRecipe, presetXmp, steps } from './look'
+import type { Calibration, Descriptor, FitResult, Params } from './engine'
+import { blend, describeText, learnCalibration, matchScore, measureRef, prepare, renderImage, sameShot, scaleParams, scoreFor, toRecipe } from './engine'
 import type { SavedLook } from './looksApi'
 import { deleteLook, listLooks, saveLook, thumbFrom } from './looksApi'
-import { sandyWrite } from '../studio/sandyWrite'
+import { clearCalibration, loadCalibration, saveCalibration } from './calibration'
 import { readRaw } from '../cull/raw'
 import { download } from '../cull/folder'
+import { sandyWrite } from '../studio/sandyWrite'
 import './EditLab.css'
 
 const RAW = /\.(arw|cr2|cr3|nef|raf|orf|rw2|dng)$/i
 
-interface Slot {
+interface Shot {
   name: string
   url: string
-  look: Look
-  pixels: Pixels | null // null when the reference comes from your saved looks
+  pixels: Pixels
   raw: boolean
-  savedId?: string
 }
 
-/** Turns a RAW into its (correctly rotated) built-in JPEG, or passes images through. */
+/** A RAW becomes its (rotated) built-in JPEG; images pass through. */
 async function toImageBlob(file: File): Promise<{ blob: Blob; raw: boolean }> {
   if (!RAW.test(file.name)) return { blob: file, raw: false }
   const info = await readRaw(file)
@@ -37,18 +38,36 @@ async function toImageBlob(file: File): Promise<{ blob: Blob; raw: boolean }> {
   return { blob: await c.convertToBlob({ type: 'image/jpeg', quality: 0.92 }), raw: true }
 }
 
-async function toSlot(file: File): Promise<Slot> {
+async function toShot(file: File, max = 900): Promise<Shot> {
   const { blob, raw } = await toImageBlob(file)
-  const pixels = await loadPixels(blob, 900)
-  return { name: file.name, url: URL.createObjectURL(blob), look: measure(await loadPixels(blob, 480)), pixels, raw }
+  return { name: file.name, url: URL.createObjectURL(blob), pixels: await loadPixels(blob, max), raw }
 }
 
-function Drop({ label, hint, slot, busy, onFile }: { label: string; hint: string; slot: Slot | null; busy: boolean; onFile: (f: File) => void }) {
+/** Runs the solver in a background worker. */
+function solve(px: Pixels, target: Descriptor, calib: Calibration | null, onProgress: (p: number) => void): Promise<FitResult> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./fitWorker.ts', import.meta.url), { type: 'module' })
+    worker.onmessage = (e: MessageEvent<{ progress?: number; done?: FitResult }>) => {
+      if (e.data.progress !== undefined) onProgress(e.data.progress)
+      if (e.data.done) {
+        resolve(e.data.done)
+        worker.terminate()
+      }
+    }
+    worker.onerror = (e) => {
+      reject(new Error(e.message || 'The matcher crashed.'))
+      worker.terminate()
+    }
+    worker.postMessage({ px, target, calib })
+  })
+}
+
+function Drop({ label, hint, preview, count, busy, multiple, onFiles }: { label: string; hint: string; preview: string | null; count?: number; busy: boolean; multiple?: boolean; onFiles: (f: File[]) => void }) {
   const input = useRef<HTMLInputElement>(null)
   const [over, setOver] = useState(false)
   return (
     <button
-      className={`lb-drop${over ? ' over' : ''}${slot ? ' has' : ''}`}
+      className={`lb-drop${over ? ' over' : ''}${preview ? ' has' : ''}`}
       onClick={() => input.current?.click()}
       onDragOver={(e) => {
         e.preventDefault()
@@ -58,179 +77,291 @@ function Drop({ label, hint, slot, busy, onFile }: { label: string; hint: string
       onDrop={(e) => {
         e.preventDefault()
         setOver(false)
-        const f = e.dataTransfer.files[0]
-        if (f) onFile(f)
+        const f = [...e.dataTransfer.files]
+        if (f.length) onFiles(multiple ? f : f.slice(0, 1))
       }}
     >
-      <input ref={input} type="file" accept="image/*,.arw,.cr2,.cr3,.nef,.raf,.dng" hidden onChange={(e) => (e.target.files?.[0] && onFile(e.target.files[0]), (e.target.value = ''))} />
-      {slot ? <img src={slot.url} alt="" /> : <span className="lb-drop-empty">{busy ? 'Reading…' : '+'}</span>}
+      <input ref={input} type="file" multiple={multiple} accept="image/*,.arw,.cr2,.cr3,.nef,.raf,.dng" hidden onChange={(e) => (e.target.files?.length && onFiles([...e.target.files]), (e.target.value = ''))} />
+      {preview ? <img src={preview} alt="" /> : <span className="lb-drop-empty">{busy ? 'Reading…' : '+'}</span>}
+      {count && count > 1 ? <span className="lb-count">{count} photos</span> : null}
       <span className="lb-drop-label">
         <b>{label}</b>
-        <small>{slot ? `${slot.name}${slot.raw ? ' · RAW' : ''}` : hint}</small>
+        <small>{hint}</small>
       </span>
     </button>
   )
 }
 
 export default function EditLab() {
-  const [ref, setRef] = useState<Slot | null>(null)
-  const [mine, setMine] = useState<Slot | null>(null)
+  const [refs, setRefs] = useState<Shot[]>([])
+  const [refName, setRefName] = useState('')
+  const [savedRef, setSavedRef] = useState<SavedLook | null>(null)
+  const [mine, setMine] = useState<Shot | null>(null)
   const [busy, setBusy] = useState<'ref' | 'mine' | null>(null)
   const [error, setError] = useState('')
+  const [calib, setCalib] = useState<Calibration | null>(null)
+  const [calibOpen, setCalibOpen] = useState(false)
+  const [calibRaw, setCalibRaw] = useState<Shot | null>(null)
+  const [calibNote, setCalibNote] = useState('')
+  const [result, setResult] = useState<FitResult | null>(null)
+  const [solving, setSolving] = useState(0)
   const [strength, setStrength] = useState(100)
   const [split, setSplit] = useState(50)
   const [show, setShow] = useState<'compare' | 'ref'>('compare')
   const [full, setFull] = useState(false)
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const before = useRef<HTMLCanvasElement>(null)
   const [library, setLibrary] = useState<SavedLook[]>([])
   const [naming, setNaming] = useState<string | null>(null)
   const [mixId, setMixId] = useState('')
   const [mixAmount, setMixAmount] = useState(30)
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState<string | null>(null)
-  const [result, setResult] = useState<Slot | null>(null)
+  const [asking, setAsking] = useState(false)
+  const [check, setCheck] = useState<FitResult | null>(null)
   const [checking, setChecking] = useState(false)
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const before = useRef<HTMLCanvasElement>(null)
+  const sideCanvas = useRef<HTMLCanvasElement>(null)
   const resultInput = useRef<HTMLInputElement>(null)
 
-  async function checkResult(f: File) {
-    setChecking(true)
-    setError('')
-    try {
-      setResult(await toSlot(f))
-    } catch (e) {
-      setError((e as Error).message)
-    }
-    setChecking(false)
-  }
-  const [asking, setAsking] = useState(false)
-
   useEffect(() => {
-    listLooks().then(setLibrary).catch(() => {})
+    listLooks()
+      .then((l) => setLibrary(l.filter((x) => (x.look as unknown as Descriptor).v === 2)))
+      .catch(() => {})
+    loadCalibration().then(setCalib).catch(() => {})
   }, [])
 
-  function useSaved(s: SavedLook) {
-    setRef({ name: s.name, url: s.thumb, look: s.look, pixels: null, raw: false, savedId: s.id })
-    setMixId('')
-  }
+  const useCalib = mine?.raw ? calib : null
 
-  async function keepLook() {
-    if (!ref || !naming?.trim()) return
-    try {
-      const saved = await saveLook(naming.trim(), ref.look, await thumbFrom(ref.url))
-      setLibrary((l) => [saved, ...l])
-      setRef({ ...ref, name: saved.name, savedId: saved.id })
-      setNaming(null)
-    } catch (e) {
-      setError((e as Error).message)
+  // The target look: one or more reference photos (or a saved look), optionally mixed with another saved look.
+  const refDesc = useMemo<Descriptor | null>(() => {
+    if (savedRef) return savedRef.look as unknown as Descriptor
+    if (!refs.length) return null
+    return blend(refs.map((r) => ({ d: measureRef(r.pixels), w: 1 })))
+  }, [refs, savedRef])
+  const mixWith = library.find((l) => l.id === mixId)
+  const target = useMemo<Descriptor | null>(() => {
+    if (!refDesc) return null
+    return mixWith ? blend([{ d: refDesc, w: 100 - mixAmount }, { d: mixWith.look as unknown as Descriptor, w: mixAmount }]) : refDesc
+  }, [refDesc, mixWith, mixAmount])
+
+  // Solve whenever the photo or target changes.
+  useEffect(() => {
+    if (!mine || !target) return
+    let live = true
+    setResult(null)
+    setCheck(null)
+    setSolving(0.01)
+    solve(mine.pixels, target, useCalib, (p) => live && setSolving(Math.max(0.01, p)))
+      .then((r) => live && (setResult(r), setSolving(0)))
+      .catch((e: Error) => live && (setError(e.message), setSolving(0)))
+    return () => {
+      live = false
     }
-  }
+  }, [mine, target, useCalib])
 
-  async function forget(id: string) {
-    setLibrary((l) => l.filter((x) => x.id !== id))
-    deleteLook(id).catch(() => {})
-  }
+  const params: Params | null = useMemo(() => (result ? scaleParams(result.params, strength / 100) : null), [result, strength])
+  const recipe = useMemo(() => (params ? toRecipe(params) : null), [params])
+  const list = useMemo(() => (recipe ? steps(recipe) : []), [recipe])
+  const prep = useMemo(() => (mine ? prepare(mine.pixels, 110, useCalib) : null), [mine, useCalib])
+  const liveScore = useMemo(() => (prep && params && target ? scoreFor(prep, params, target) : null), [prep, params, target])
 
-  async function pick(which: 'ref' | 'mine', f: File) {
+  // Draw the preview (same model the preset is built from).
+  useEffect(() => {
+    if (!mine || !params) return
+    const { w, h } = mine.pixels
+    const id = window.setTimeout(() => {
+      const after = renderImage(mine.pixels, params, useCalib)
+      const beforeImg = useCalib ? renderImage(mine.pixels, scaleParams(params, 0), useCalib) : new ImageData(new Uint8ClampedArray(mine.pixels.data), w, h)
+      for (const [c, img] of [
+        [canvas.current, after],
+        [before.current, beforeImg],
+        [sideCanvas.current, after],
+      ] as const)
+        if (c) {
+          c.width = w
+          c.height = h
+          c.getContext('2d')!.putImageData(img, 0, 0)
+        }
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [mine, params, useCalib, show])
+
+  async function pickRefs(files: File[]) {
     setError('')
-    setBusy(which)
+    setBusy('ref')
     try {
-      const s = await toSlot(f)
-      if (which === 'ref') setRef(s)
-      else setMine(s)
+      const shots = []
+      for (const f of files.slice(0, 12)) shots.push(await toShot(f, 520))
+      setRefs(shots)
+      setSavedRef(null)
+      setRefName(shots.length > 1 ? `${shots.length} reference photos` : shots[0].name.replace(/\.[^.]+$/, ''))
     } catch (e) {
       setError((e as Error).message)
     }
     setBusy(null)
   }
 
-  const mixWith = library.find((l) => l.id === mixId)
-  const target = useMemo(() => (ref ? (mixWith ? mixLooks([{ look: ref.look, weight: 100 - mixAmount }, { look: mixWith.look, weight: mixAmount }]) : ref.look) : null), [ref, mixWith, mixAmount])
-  const recipe: Recipe | null = useMemo(() => (target && mine ? makeRecipe(mine.look, target) : null), [target, mine])
+  async function pickMine(files: File[]) {
+    setError('')
+    setBusy('mine')
+    try {
+      setMine(await toShot(files[0]))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    setBusy(null)
+  }
+
+  async function calibrate(files: File[], which: 'raw' | 'lr') {
+    setError('')
+    setCalibNote('')
+    try {
+      const shot = await toShot(files[0], 700)
+      if (which === 'raw') {
+        if (!shot.raw) throw new Error('First drop the RAW file (.ARW).')
+        setCalibRaw(shot)
+        setCalibNote('Now drop the same photo exported from Lightroom with no edits (JPG).')
+        return
+      }
+      if (!calibRaw) throw new Error('Drop the RAW first.')
+      if (!sameShot(calibRaw.pixels, shot.pixels)) throw new Error("Those don't look like the same photo. Use the same shot, uncropped, with no edits.")
+      const c = learnCalibration(calibRaw.pixels, shot.pixels, calib)
+      await saveCalibration(c)
+      setCalib(c)
+      setCalibRaw(null)
+      setCalibNote(`Calibrated from ${c.pairs} photo${c.pairs === 1 ? '' : 's'}. RAWs are now measured the way Lightroom shows them.`)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function keepLook() {
+    if (!refDesc || !naming?.trim()) return
+    try {
+      const thumb = refs[0] ? await thumbFrom(refs[0].url) : ''
+      const saved = await saveLook(naming.trim(), refDesc as never, thumb)
+      setLibrary((l) => [saved, ...l])
+      setSavedRef(saved)
+      setRefName(saved.name)
+      setNaming(null)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  function useSaved(s: SavedLook) {
+    setSavedRef(s)
+    setRefs([])
+    setRefName(s.name)
+    setMixId('')
+  }
+
+  async function checkResult(f: File) {
+    if (!target) return
+    setChecking(true)
+    try {
+      const shot = await toShot(f, 700)
+      setCheck(await solve(shot.pixels, target, null, () => {}))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    setChecking(false)
+  }
+
+  const corrected = useMemo(() => (check && recipe ? mergeRecipe(recipe, toRecipe(check.params)) : null), [check, recipe])
+  const remaining = useMemo(() => (check ? steps(toRecipe(check.params)) : []), [check])
+
+  function savePreset(which: 'main' | 'corrected') {
+    const r = which === 'main' ? recipe : corrected
+    if (!r) return
+    const name = `Match · ${refName}${which === 'corrected' ? ' (corrected)' : strength !== 100 ? ` ${strength}%` : ''}`
+    download(new Blob([presetXmp(name, r, !!mine?.raw)], { type: 'application/rdf+xml' }), `${name.replace(/[^\w ·%()-]/g, '').replace(/\s+/g, '-')}.xmp`)
+  }
 
   async function ask(q = question) {
-    if (!q.trim() || !scaled || !mine || !target) return
+    if (!q.trim() || !target || !mine) return
     setAsking(true)
     setAnswer(null)
+    const mineDesc = measureRef(mine.pixels)
     const text = await sandyWrite(
-      `I'm matching my photo to a reference look in Lightroom. My photo: ${describeLook(mine.look)}. Reference${mixWith ? ` (mixed ${100 - mixAmount}% ${ref?.name} / ${mixAmount}% ${mixWith.name})` : ''}: ${describeLook(target)}. The recipe worked out: ${list.map((s) => `${s.title} (${s.moves.join(', ')})`).join('; ')}. My question: ${q}. Answer like an experienced nightlife photographer and Lightroom editor: specific sliders, masks or techniques, short and practical.`,
+      `I'm matching my photo to a reference look in Lightroom. My photo: ${describeText(mineDesc)}. Reference (${refName}${mixWith ? ` mixed with ${mixWith.name}` : ''}): ${describeText(target)}. The solver's settings: ${list.map((s) => `${s.title} (${s.moves.join(', ')})`).join('; ')}. Match score ${liveScore ?? '?'}/100. My question: ${q}. Answer like an experienced nightlife photographer and Lightroom editor: specific sliders, masks or lighting fixes, short and practical. If the gap is about light (flash vs ambient) rather than editing, say so.`,
     )
     setAnswer(text ?? "Couldn't reach Sandy right now. Try again in a moment.")
     setAsking(false)
   }
-  const scaled = useMemo(() => (recipe ? scaleRecipe(recipe, strength / 100) : null), [recipe, strength])
-  const list = useMemo(() => (scaled ? steps(scaled) : []), [scaled])
-
-  useEffect(() => {
-    if (!mine || !scaled || !canvas.current || !before.current) return
-    const { w, h } = mine.pixels!
-    for (const c of [canvas.current, before.current]) {
-      c.width = w
-      c.height = h
-    }
-    before.current.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(mine.pixels!.data), w, h), 0, 0)
-    const id = window.setTimeout(() => canvas.current?.getContext('2d')!.putImageData(render(mine.pixels!, scaled), 0, 0), 0)
-    return () => window.clearTimeout(id)
-  }, [mine, scaled])
-
-  const correction = useMemo(() => (result && target ? makeRecipe(result.look, target) : null), [result, target])
-  const remaining = useMemo(() => (correction ? steps(correction) : []), [correction])
-  const corrected = useMemo(() => (correction && scaled ? mergeRecipe(scaled, correction) : null), [correction, scaled])
-
-  function saveCorrected() {
-    if (!corrected || !ref) return
-    const name = `Match · ${ref.name.replace(/\.[^.]+$/, '')} (corrected)`
-    download(new Blob([presetXmp(name, corrected, !!mine?.raw)], { type: 'application/rdf+xml' }), `${name.replace(/[^\w ·%()-]/g, '').replace(/\s+/g, '-')}.xmp`)
-  }
-
-  function savePreset() {
-    if (!scaled || !ref) return
-    const name = `Match · ${ref.name.replace(/\.[^.]+$/, '')}${strength < 100 ? ` ${strength}%` : ''}`
-    download(new Blob([presetXmp(name, scaled, !!mine?.raw)], { type: 'application/rdf+xml' }), `${name.replace(/[^\w ·%-]/g, '').replace(/\s+/g, '-')}.xmp`)
-  }
 
   const shown = full ? list : list.slice(0, 4)
-  const quickAsks = ['Why does the reference look softer?', 'How do I get the glow on the lights?', 'What masks would make this closer?', 'Is my photo even a good match for this look?']
-  const quickShare = list.length ? Math.round((list.slice(0, 4).reduce((a, s) => a + s.impact, 0) / Math.max(0.01, list.reduce((a, s) => a + s.impact, 0))) * 100) : 0
+  const beforeScore = result ? matchScore(result.before) : null
+  const refPreview = refs[0]?.url ?? savedRef?.thumb ?? null
 
   return (
     <div className="lb">
       <div className="lb-inputs">
-        <Drop label="The look you want" hint="e.g. one of Alex's shots (JPG or screenshot)" slot={ref} busy={busy === 'ref'} onFile={(f) => pick('ref', f)} />
+        <Drop label="The look you want" hint={refs.length ? refName : 'Drop 1–10 of their photos. More photos = their style, not one photo.'} preview={refPreview} count={refs.length} multiple busy={busy === 'ref'} onFiles={pickRefs} />
         <span className="lb-arrow" aria-hidden="true">
           →
         </span>
-        <Drop label="Your photo" hint="Best: your photo exported untouched from Lightroom. RAWs work too." slot={mine} busy={busy === 'mine'} onFile={(f) => pick('mine', f)} />
+        <Drop label="Your photo" hint={mine ? `${mine.name}${mine.raw ? (calib ? ' · RAW, calibrated' : ' · RAW (calibrate for best accuracy)') : ''}` : 'A RAW off the card, or an untouched Lightroom export'} preview={mine?.url ?? null} busy={busy === 'mine'} onFiles={pickMine} />
       </div>
       {error && <p className="gr-error">{error}</p>}
+
+      <section className={`lb-calib${calib ? ' ok' : ''}`}>
+        <div className="lb-calib-head">
+          <span>
+            <b>{calib ? '✓ Calibrated to your Lightroom' : '⚠ Not calibrated yet'}</b>
+            <small>{calib ? `Learned from ${calib.pairs} photo${calib.pairs === 1 ? '' : 's'}. RAWs are measured the way Lightroom actually shows them.` : "Do this once: it's the single biggest accuracy boost for RAWs."}</small>
+          </span>
+          <button className="st-ghost" onClick={() => setCalibOpen((o) => !o)}>
+            {calibOpen ? 'Close' : calib ? 'Add another' : 'Calibrate'}
+          </button>
+        </div>
+        {calibOpen && (
+          <div className="lb-calib-body">
+            <p>
+              Pick any RAW. In Lightroom, reset it (no edits, no preset, default profile) and export it as a JPG. Drop the <b>RAW</b> first, then the <b>export</b>.
+            </p>
+            <div className="lb-calib-drops">
+              <Drop label="1 · The RAW" hint={calibRaw ? calibRaw.name : '.ARW straight off the card'} preview={calibRaw?.url ?? null} busy={false} onFiles={(f) => calibrate(f, 'raw')} />
+              <Drop label="2 · Lightroom export" hint="Same photo, untouched, as JPG" preview={null} busy={false} onFiles={(f) => calibrate(f, 'lr')} />
+            </div>
+            {calibNote && <p className="lb-calib-note">{calibNote}</p>}
+            {calib && (
+              <button className="lb-link" onClick={() => (clearCalibration(), setCalib(null))}>
+                Reset calibration
+              </button>
+            )}
+          </div>
+        )}
+      </section>
 
       <section className="lb-lib">
         <div className="lb-lib-head">
           <b>Your looks</b>
-          {ref && !ref.savedId && ref.pixels && (naming === null ? (
-            <button className="st-ghost" onClick={() => setNaming(ref.name.replace(/\.[^.]+$/, ''))}>
-              ★ Save this look
-            </button>
-          ) : (
-            <span className="lb-name">
-              <input value={naming} onChange={(e) => setNaming(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && keepLook()} placeholder="Name it, e.g. Alex night blue" autoFocus />
-              <button className="btn-brass" onClick={keepLook} disabled={!naming.trim()}>
-                Save
+          {refs.length > 0 && !savedRef &&
+            (naming === null ? (
+              <button className="st-ghost" onClick={() => setNaming(refName)}>
+                ★ Save this look
               </button>
-            </span>
-          ))}
+            ) : (
+              <span className="lb-name">
+                <input value={naming} onChange={(e) => setNaming(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && keepLook()} placeholder="e.g. Alex night blue" autoFocus />
+                <button className="btn-brass" onClick={keepLook} disabled={!naming.trim()}>
+                  Save
+                </button>
+              </span>
+            ))}
         </div>
         {library.length === 0 ? (
-          <p className="lb-lib-empty">Save a reference as a look and reuse it on any photo, mix it with another, or pre-edit a whole shoot with it in Auto-cull.</p>
+          <p className="lb-lib-empty">Save a look (ideally from 5+ of their photos) and reuse it on any photo, mix it, or pre-edit a whole shoot with it in Auto-cull.</p>
         ) : (
           <div className="lb-lib-row">
             {library.map((l) => (
-              <div key={l.id} className={`lb-look${ref?.savedId === l.id ? ' on' : ''}`}>
+              <div key={l.id} className={`lb-look${savedRef?.id === l.id ? ' on' : ''}`}>
                 <button onClick={() => useSaved(l)} title={`Use ${l.name}`}>
-                  <img src={l.thumb} alt="" />
+                  {l.thumb ? <img src={l.thumb} alt="" /> : <span className="lb-look-blank" />}
                   <span>{l.name}</span>
                 </button>
-                <i role="button" aria-label={`Delete ${l.name}`} onClick={() => forget(l.id)}>
+                <i role="button" aria-label={`Delete ${l.name}`} onClick={() => (setLibrary((x) => x.filter((y) => y.id !== l.id)), deleteLook(l.id).catch(() => {}))}>
                   ×
                 </i>
               </div>
@@ -239,140 +370,142 @@ export default function EditLab() {
         )}
       </section>
 
-      {!recipe && (
+      {!target || !mine ? (
         <div className="lb-empty">
-          <b>Drop in two photos.</b> Sandy compares them and tells you exactly which Lightroom sliders to move, biggest wins first, then shows you what your photo will look like.
+          <b>How it works:</b> Sandy builds a model of Lightroom's tools and runs hundreds of trial edits on your photo, keeping the settings that land closest to the reference: tone curve, white balance, all 8 colours, 3-way colour grading, vibrance and vignette. Skin tones count most. You get a match score, a preview and a preset.
         </div>
-      )}
+      ) : solving ? (
+        <div className="lb-solving">
+          <div className="ap-orb" />
+          <b>Matching… {Math.round(solving * 100)}%</b>
+          <small>Trying edits on your photo and keeping what gets closer.</small>
+          <div className="lb-bar">
+            <i style={{ width: `${Math.round(solving * 100)}%` }} />
+          </div>
+        </div>
+      ) : (
+        result &&
+        params &&
+        recipe && (
+          <div className="lb-result">
+            <section className="lb-stage">
+              <div className="lb-score">
+                <span>
+                  Match <b>{beforeScore}%</b> → <b className="hi">{liveScore}%</b>
+                </span>
+                <div className="lb-scorebar">
+                  <i className="b" style={{ width: `${beforeScore}%` }} />
+                  <i className="a" style={{ width: `${liveScore}%` }} />
+                </div>
+                {liveScore !== null && liveScore < 70 && <small>Below 70% usually means the lighting differs (flash vs ambient, colour of the venue lights). Ask Sandy what to change on the shoot.</small>}
+              </div>
+              <div className="lb-view-tabs">
+                <button className={show === 'compare' ? 'on' : ''} onClick={() => setShow('compare')}>
+                  Before / after
+                </button>
+                <button className={show === 'ref' ? 'on' : ''} onClick={() => setShow('ref')}>
+                  Next to the reference
+                </button>
+              </div>
+              {show === 'compare' ? (
+                <div className="lb-compare" style={{ ['--split' as string]: `${split}%` }}>
+                  <canvas ref={canvas} className="lb-after" />
+                  <canvas ref={before} className="lb-before" />
+                  <span className="lb-line" />
+                  <em className="l">Before</em>
+                  <em className="r">After</em>
+                  <input type="range" min={0} max={100} value={split} onChange={(e) => setSplit(+e.target.value)} aria-label="Compare before and after" />
+                </div>
+              ) : (
+                <div className="lb-side">
+                  <figure>
+                    <canvas ref={sideCanvas} />
+                    <figcaption>Yours, matched</figcaption>
+                  </figure>
+                  <figure>
+                    {refPreview ? <img src={refPreview} alt="" /> : <span className="lb-look-blank" />}
+                    <figcaption>{mixWith ? `Reference + ${mixWith.name}` : 'Reference'}</figcaption>
+                  </figure>
+                </div>
+              )}
+              {library.some((l) => l.id !== savedRef?.id) && (
+                <div className="lb-mix">
+                  <span>Mix in</span>
+                  <select value={mixId} onChange={(e) => setMixId(e.target.value)} aria-label="Look to mix in">
+                    <option value="">nothing</option>
+                    {library
+                      .filter((l) => l.id !== savedRef?.id)
+                      .map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                  </select>
+                  {mixWith && (
+                    <label>
+                      <b>{100 - mixAmount}%</b> / <b>{mixAmount}%</b>
+                      <input type="range" min={0} max={100} step={5} value={mixAmount} onChange={(e) => setMixAmount(+e.target.value)} />
+                    </label>
+                  )}
+                </div>
+              )}
+              <label className="lb-strength">
+                <span>
+                  Strength <b>{strength}%</b>
+                </span>
+                <input type="range" min={0} max={150} step={5} value={strength} onChange={(e) => setStrength(+e.target.value)} />
+              </label>
+            </section>
 
-      {recipe && scaled && mine && ref && (
-        <div className="lb-result">
-          <section className="lb-stage">
-            <div className="lb-view-tabs">
-              <button className={show === 'compare' ? 'on' : ''} onClick={() => setShow('compare')}>
-                Before / after
-              </button>
-              <button className={show === 'ref' ? 'on' : ''} onClick={() => setShow('ref')}>
-                Next to the reference
-              </button>
-            </div>
-            {show === 'compare' ? (
-              <div className="lb-compare" style={{ ['--split' as string]: `${split}%` }}>
-                <canvas ref={canvas} className="lb-after" />
-                <canvas ref={before} className="lb-before" />
-                <span className="lb-line" />
-                <em className="l">Before</em>
-                <em className="r">After</em>
-                <input type="range" min={0} max={100} value={split} onChange={(e) => setSplit(+e.target.value)} aria-label="Compare before and after" />
+            <section className="lb-recipe">
+              <header>
+                <h3>Your recipe</h3>
+                <p>{list.length ? `Biggest wins first. ${Math.min(4, list.length)} steps shown.` : 'Already a match.'}</p>
+              </header>
+              <ol>
+                {shown.map((s, i) => (
+                  <li key={s.title} style={{ animationDelay: `${i * 0.05}s` }}>
+                    <div className="lb-step-head">
+                      <b>{s.title}</b>
+                      <span className="lb-panel">{s.panel}</span>
+                    </div>
+                    <div className="lb-impact">
+                      <i style={{ width: `${Math.round(s.impact * 100)}%` }} />
+                    </div>
+                    <ul>
+                      {s.moves.map((m) => (
+                        <li key={m}>{m}</li>
+                      ))}
+                    </ul>
+                    <small>{s.why}</small>
+                  </li>
+                ))}
+              </ol>
+              {list.length > 4 && (
+                <button className="st-ghost" onClick={() => setFull((f) => !f)}>
+                  {full ? 'Show just the biggest 4' : `Show all ${list.length} steps`}
+                </button>
+              )}
+              <div className="lb-actions">
+                <button className="btn-brass" onClick={() => savePreset('main')}>
+                  ⬇ Lightroom preset
+                </button>
               </div>
-            ) : (
-              <div className="lb-side">
-                <figure>
-                  <canvas
-                    ref={(c) => {
-                      if (c && mine) {
-                        c.width = mine.pixels!.w
-                        c.height = mine.pixels!.h
-                        c.getContext('2d')!.putImageData(render(mine.pixels!, scaled), 0, 0)
-                      }
-                    }}
-                  />
-                  <figcaption>Yours, matched</figcaption>
-                </figure>
-                <figure>
-                  <img src={ref.url} alt="" />
-                  <figcaption>{mixWith ? `Reference (mixed with ${mixWith.name})` : 'Reference'}</figcaption>
-                </figure>
-              </div>
-            )}
-            {ref && library.some((l) => l.id !== ref.savedId) && (
-              <div className="lb-mix">
-                <span>Mix in</span>
-                <select value={mixId} onChange={(e) => setMixId(e.target.value)} aria-label="Look to mix in">
-                  <option value="">nothing</option>
-                  {library
-                    .filter((l) => l.id !== ref.savedId)
-                    .map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                </select>
-                {mixWith && (
-                  <label>
-                    <b>{100 - mixAmount}%</b> {ref.name} / <b>{mixAmount}%</b> {mixWith.name}
-                    <input type="range" min={0} max={100} step={5} value={mixAmount} onChange={(e) => setMixAmount(+e.target.value)} />
-                  </label>
-                )}
-              </div>
-            )}
-            <label className="lb-strength">
-              <span>
-                Strength <b>{strength}%</b>
-              </span>
-              <input type="range" min={0} max={150} step={5} value={strength} onChange={(e) => setStrength(+e.target.value)} />
-            </label>
-            <p className="lb-note">Preview is close, not exact: Lightroom renders RAWs with more detail. Use it to judge direction.</p>
-          </section>
+              <small className="lb-note">Import: Develop › Presets › + › Import Presets. The preset's Amount slider works like Strength here.{mine.raw ? ' White balance: set it by hand with the first step (RAW Kelvin is absolute).' : ''}</small>
 
-          <section className="lb-recipe">
-            <header>
-              <h3>Your recipe</h3>
-              <p>{list.length ? `${Math.min(4, list.length)} steps get you ~${quickShare}% of the way.` : 'These two already look very alike.'}</p>
-            </header>
-            <ol>
-              {shown.map((s, i) => (
-                <li key={s.title} style={{ animationDelay: `${i * 0.05}s` }}>
-                  <div className="lb-step-head">
-                    <b>{s.title}</b>
-                    <span className="lb-panel">{s.panel}</span>
-                  </div>
-                  <div className="lb-impact">
-                    <i style={{ width: `${Math.round(s.impact * 100)}%` }} />
-                  </div>
-                  <ul>
-                    {s.moves.map((m) => (
-                      <li key={m}>{m}</li>
-                    ))}
-                  </ul>
-                  <small>{s.why}</small>
-                </li>
-              ))}
-            </ol>
-            {list.length > 4 && (
-              <button className="st-ghost" onClick={() => setFull((f) => !f)}>
-                {full ? 'Show just the quick version' : `Show all ${list.length} steps`}
-              </button>
-            )}
-            <div className="lb-actions">
-              <button className="btn-brass" onClick={savePreset}>
-                ⬇ Lightroom preset
-              </button>
-            </div>
-            <div className="lb-check">
-              <input ref={resultInput} type="file" accept="image/*" hidden onChange={(e) => (e.target.files?.[0] && checkResult(e.target.files[0]), (e.target.value = ''))} />
-              <b>✓ Check my result</b>
-              <small>Applied the preset? Export or screenshot what you got in Lightroom and drop it here. Sandy measures what's still off and gives you a corrected preset.</small>
-              <button className="st-ghost" onClick={() => resultInput.current?.click()} disabled={checking}>
-                {checking ? 'Measuring…' : result ? 'Check another result' : '+ Add my Lightroom result'}
-              </button>
-              {result && correction && (
-                <div className="lb-check-out">
-                  <div className="lb-check-thumbs">
-                    <figure>
-                      <img src={result.url} alt="" />
-                      <figcaption>Your result</figcaption>
-                    </figure>
-                    <figure>
-                      <img src={ref.url} alt="" />
-                      <figcaption>Target</figcaption>
-                    </figure>
-                  </div>
-                  {remaining.length === 0 ? (
-                    <p className="lb-close">You're there. Nothing meaningful left to change.</p>
-                  ) : (
-                    <>
-                      <b className="lb-still">Still to do</b>
+              <div className="lb-check">
+                <input ref={resultInput} type="file" accept="image/*" hidden onChange={(e) => (e.target.files?.[0] && checkResult(e.target.files[0]), (e.target.value = ''))} />
+                <b>✓ Check my result</b>
+                <small>After applying the preset, export or screenshot what Lightroom gives you and drop it here. Sandy measures the gap and builds a corrected preset.</small>
+                <button className="st-ghost" onClick={() => resultInput.current?.click()} disabled={checking}>
+                  {checking ? 'Measuring…' : check ? 'Check another result' : '+ Add my Lightroom result'}
+                </button>
+                {check && (
+                  <div className="lb-check-out">
+                    <p className="lb-still">
+                      Your Lightroom result matches <b>{matchScore(check.before)}%</b>. Corrected preset reaches about <b>{matchScore(check.after)}%</b>.
+                    </p>
+                    {remaining.length > 0 && (
                       <ol className="lb-still-list">
                         {remaining.slice(0, 4).map((s) => (
                           <li key={s.title}>
@@ -380,43 +513,40 @@ export default function EditLab() {
                           </li>
                         ))}
                       </ol>
-                      <button className="btn-brass" onClick={saveCorrected}>
-                        ⬇ Corrected preset
-                      </button>
-                      <small className="lb-note">Replace the first preset with this one (don't stack them). Repeat the check if it still needs a nudge.</small>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="lb-ask">
-              <b>✦ Ask Sandy about this edit</b>
-              <div className="lb-ask-chips">
-                {quickAsks.map((q) => (
-                  <button key={q} onClick={() => (setQuestion(q), ask(q))} disabled={asking}>
-                    {q}
-                  </button>
-                ))}
+                    )}
+                    <button className="btn-brass" onClick={() => savePreset('corrected')}>
+                      ⬇ Corrected preset
+                    </button>
+                  </div>
+                )}
               </div>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  ask()
-                }}
-              >
-                <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask anything about getting this look…" />
-                <button className="st-ghost" disabled={asking || !question.trim()}>
-                  {asking ? '…' : 'Ask'}
-                </button>
-              </form>
-              {asking && <p className="lb-note st-loading">Sandy is looking at both photos…</p>}
-              {answer && <p className="lb-answer">{answer}</p>}
-            </div>
-            <small className="lb-note">
-              Import in Lightroom: Develop › Presets › + › Import Presets. Use the preset's Amount slider to dial it in.{mine.raw ? ' White balance is left to you (step above) because RAWs use absolute Kelvin.' : ''}
-            </small>
-          </section>
-        </div>
+
+              <div className="lb-ask">
+                <b>✦ Ask Sandy about this edit</b>
+                <div className="lb-ask-chips">
+                  {['Why does the reference look softer?', 'How do I get the glow on the lights?', 'What masks would get this closer?', 'What should I change on the shoot to get this look?'].map((q) => (
+                    <button key={q} onClick={() => (setQuestion(q), ask(q))} disabled={asking}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    ask()
+                  }}
+                >
+                  <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask anything about getting this look…" />
+                  <button className="st-ghost" disabled={asking || !question.trim()}>
+                    {asking ? '…' : 'Ask'}
+                  </button>
+                </form>
+                {asking && <p className="lb-note st-loading">Sandy is looking at both photos…</p>}
+                {answer && <p className="lb-answer">{answer}</p>}
+              </div>
+            </section>
+          </div>
+        )
       )}
     </div>
   )

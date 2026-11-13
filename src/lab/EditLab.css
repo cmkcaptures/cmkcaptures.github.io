@@ -97,3 +97,31 @@
 .lb-still-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding-left: 18px; font-size: 13px; }
 .lb-still-list em { font: 600 12px ui-monospace, Consolas, monospace; font-style: normal; color: #38d6ec; }
 .lb-close { margin: 0; font-weight: 600; color: #34d399; }
+.lb-count { position: absolute; top: 10px; right: 10px; padding: 3px 9px; font: 700 11px Inter, sans-serif; color: #05080f; background: #38d6ec; border-radius: 999px; }
+.lb-calib { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: #fbbf2410; border: 1px solid #fbbf2444; border-radius: 14px; }
+.lb-calib.ok { background: #34d39910; border-color: #34d39944; }
+.lb-calib-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.lb-calib-head span { display: flex; flex-direction: column; gap: 2px; }
+.lb-calib-head b { font: 700 14px Sora, Inter, sans-serif; }
+.lb-calib-head small { font-size: 12px; color: #8a97ad; }
+.lb-calib-body p { margin: 0; font-size: 13px; line-height: 1.5; color: #b7c2d6; }
+.lb-calib-drops { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lb-calib-drops .lb-drop, .lb-calib-drops .lb-drop img { min-height: 140px; height: 140px; }
+.lb-calib-note { color: #34d399 !important; font-weight: 600; }
+.lb-link { align-self: flex-start; padding: 0; font: 600 12px Inter, sans-serif; color: #8a97ad; background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.lb-solving { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 34px; text-align: center; background: linear-gradient(180deg, #0f1727, #0b111d); border: 1px solid #ffffff12; border-radius: 18px; }
+.lb-solving b { font: 700 18px Sora, Inter, sans-serif; }
+.lb-solving small { font-size: 13px; color: #8a97ad; }
+.lb-bar { width: min(360px, 100%); height: 6px; overflow: hidden; background: #ffffff10; border-radius: 6px; }
+.lb-bar i { display: block; height: 100%; background: linear-gradient(90deg, #2563eb, #38d6ec); transition: width .3s; }
+.lb-score { display: flex; flex-direction: column; gap: 6px; }
+.lb-score span { font-size: 14px; color: #8a97ad; }
+.lb-score b { font: 800 20px Sora, Inter, sans-serif; color: #e8eef9; }
+.lb-score b.hi { color: #34d399; }
+.lb-score small { font-size: 12px; color: #fbbf24; }
+.lb-scorebar { position: relative; height: 8px; overflow: hidden; background: #ffffff10; border-radius: 8px; }
+.lb-scorebar i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 8px; transition: width .5s; }
+.lb-scorebar i.a { background: linear-gradient(90deg, #2563eb, #34d399); }
+.lb-scorebar i.b { z-index: 1; background: #ffffff33; }
+.lb-look-blank { display: block; width: 120px; height: 90px; background: linear-gradient(135deg, #a855f744, #0b111d); border-radius: 10px; }
+.lb-still b { color: #fff; }

@@ -209,8 +209,9 @@ export interface Recipe {
   blacks: number
   curve: [number, number][] // tone curve points after exposure
   vibrance: number
+  saturation?: number
   hsl: Record<Band, { hue: number; sat: number; lum: number }>
-  grade: { shadows: { hue: number; sat: number }; highlights: { hue: number; sat: number } }
+  grade: { shadows: { hue: number; sat: number }; highlights: { hue: number; sat: number }; midtones?: { hue: number; sat: number } }
   vignette: number
   clarity: number
   grain: number
@@ -283,7 +284,12 @@ export function scaleRecipe(r: Recipe, s: number): Recipe {
     curve: r.curve.map(([x, y]) => [x, Math.round(x + (y - x) * s)]),
     vibrance: Math.round(r.vibrance * s),
     hsl,
-    grade: { shadows: { ...r.grade.shadows, sat: Math.round(r.grade.shadows.sat * s) }, highlights: { ...r.grade.highlights, sat: Math.round(r.grade.highlights.sat * s) } },
+    saturation: Math.round((r.saturation ?? 0) * s),
+    grade: {
+      shadows: { ...r.grade.shadows, sat: Math.round(r.grade.shadows.sat * s) },
+      highlights: { ...r.grade.highlights, sat: Math.round(r.grade.highlights.sat * s) },
+      midtones: r.grade.midtones ? { ...r.grade.midtones, sat: Math.round(r.grade.midtones.sat * s) } : undefined,
+    },
     vignette: Math.round(r.vignette * s),
     clarity: Math.round(r.clarity * s),
     grain: Math.round(r.grain * s),
@@ -330,6 +336,22 @@ export function steps(r: Recipe): Step[] {
       why: `${r.blacks < -8 ? 'Deeper blacks' : r.blacks > 8 ? 'Lifted, softer blacks' : 'Similar blacks'}${r.shadows > 8 ? ', more detail in the shadows' : r.shadows < -8 ? ', darker shadows' : ''}${r.highlights < -8 ? ', calmer highlights' : ''}. This is most of the "feel".`,
       impact: Math.min(1, (Math.abs(r.contrast) + Math.abs(r.shadows) + Math.abs(r.blacks) + Math.abs(r.highlights)) / 160),
     })
+  const curvePts = r.curve.filter(([x, y]) => x > 0 && x < 255 && Math.abs(y - x) >= 6)
+  if (curvePts.length) {
+    const lows = curvePts.filter(([x]) => x < 100)
+    const highs = curvePts.filter(([x]) => x > 155)
+    const words = [
+      lows.length ? (lows.reduce((a, [x, y]) => a + y - x, 0) > 0 ? 'lift the shadows' : 'deepen the shadows') : '',
+      highs.length ? (highs.reduce((a, [x, y]) => a + y - x, 0) > 0 ? 'brighten the highlights' : 'pull the highlights down') : '',
+    ].filter(Boolean)
+    out.push({
+      panel: 'Tone curve (Point curve)',
+      title: 'Shape the tones',
+      moves: curvePts.map(([x, y]) => `${x} → ${y}`),
+      why: `Click on the curve at each input value and drag it to the output value: ${words.join(' and ') || 'reshape the midtones'}. The preset does this for you.`,
+      impact: Math.min(1, curvePts.reduce((a, [x, y]) => a + Math.abs(y - x), 0) / 120),
+    })
+  }
   const lift = r.curve[0][1]
   if (lift >= 6)
     out.push({ panel: 'Tone curve', title: 'Fade the blacks', moves: [`Drag the bottom-left point up to ${lift}`], why: 'The reference has a matte, faded black (nothing is pure black). That gives the film-style softness.', impact: Math.min(1, lift / 30) })
@@ -344,14 +366,16 @@ export function steps(r: Recipe): Step[] {
     }
   }
   if (Math.abs(r.vibrance) >= 8) hslMoves.unshift(`Vibrance ${sgn(r.vibrance)}`)
+  if (Math.abs(r.saturation ?? 0) >= 6) hslMoves.unshift(`Saturation ${sgn(r.saturation ?? 0)}`)
   if (hslMoves.length)
     out.push({ panel: 'HSL / Color', title: 'Match the colours', moves: hslMoves.slice(0, 6), why: 'Brings each colour (skin, venue lights, LEDs) to how the reference renders them.', impact: Math.min(1, hslImpact / 3 + Math.abs(r.vibrance) / 100) })
   const g = r.grade
-  if (g.shadows.sat >= 5 || g.highlights.sat >= 5)
+  const mid = g.midtones && g.midtones.sat >= 5 ? g.midtones : null
+  if (g.shadows.sat >= 5 || g.highlights.sat >= 5 || mid)
     out.push({
       panel: 'Color grading',
       title: 'Tint the shadows and highlights',
-      moves: [g.shadows.sat >= 5 ? `Shadows: hue ${g.shadows.hue}, sat ${g.shadows.sat}` : '', g.highlights.sat >= 5 ? `Highlights: hue ${g.highlights.hue}, sat ${g.highlights.sat}` : ''].filter(Boolean),
+      moves: [g.shadows.sat >= 5 ? `Shadows: hue ${g.shadows.hue}, sat ${g.shadows.sat}` : '', mid ? `Midtones: hue ${mid.hue}, sat ${mid.sat}` : '', g.highlights.sat >= 5 ? `Highlights: hue ${g.highlights.hue}, sat ${g.highlights.sat}` : ''].filter(Boolean),
       why: `The reference pushes ${g.shadows.sat >= 5 ? `${hueName(g.shadows.hue)} into the shadows` : ''}${g.shadows.sat >= 5 && g.highlights.sat >= 5 ? ' and ' : ''}${g.highlights.sat >= 5 ? `${hueName(g.highlights.hue)} into the highlights` : ''}. That's the signature colour of the look.`,
       impact: Math.min(1, (g.shadows.sat + g.highlights.sat) / 50),
     })
@@ -528,6 +552,9 @@ ${wb}
     crs:Blacks2012="0"
     crs:Clarity2012="${r.clarity}"
     crs:Vibrance="${r.vibrance}"
+    crs:Saturation="${r.saturation ?? 0}"
+    crs:ColorGradeMidtoneHue="${r.grade.midtones?.hue ?? 0}"
+    crs:ColorGradeMidtoneSat="${r.grade.midtones?.sat ?? 0}"
 ${hsl}
     crs:ColorGradeShadowHue="${r.grade.shadows.hue}"
     crs:ColorGradeShadowSat="${r.grade.shadows.sat}"
@@ -580,6 +607,9 @@ export function recipeCrs(r: Recipe): { attrs: string; inner: string } {
     `crs:Blacks2012="0"`,
     `crs:Clarity2012="${sign(r.clarity)}"`,
     `crs:Vibrance="${sign(r.vibrance)}"`,
+    `crs:Saturation="${sign(r.saturation ?? 0)}"`,
+    `crs:ColorGradeMidtoneHue="${r.grade.midtones?.hue ?? 0}"`,
+    `crs:ColorGradeMidtoneSat="${r.grade.midtones?.sat ?? 0}"`,
     ...BANDS.flatMap((b) => [`crs:HueAdjustment${b}="${sign(r.hsl[b].hue)}"`, `crs:SaturationAdjustment${b}="${sign(r.hsl[b].sat)}"`, `crs:LuminanceAdjustment${b}="${sign(r.hsl[b].lum)}"`]),
     `crs:ColorGradeShadowHue="${r.grade.shadows.hue}"`,
     `crs:ColorGradeShadowSat="${r.grade.shadows.sat}"`,
