@@ -217,6 +217,8 @@ const HSL_LUM = 0.16 // Lab L per Lightroom lum unit (at full chroma)
 
 /** Runs the model on one pixel (linear rgb in), returns Lab. */
 function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: number, k: number, r: number, g: number, b: number, ex: number, ey: number, bw: Float32Array, dc = 0, dt = 0): [number, number, number] {
+  // Blown-out pixels (already pure white in the photo) carry no colour or detail: keep them white, never paint them.
+  const blown = smooth(Math.min(r, g, b), 0.86, 0.97)
   r *= wbR * k
   g *= wbG * k
   b *= wbB * k
@@ -285,6 +287,11 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
     L *= 1 + (p.vignette / 100) * 0.55 * smooth(d, 0.45, 1.25)
   }
   L = clamp(L, 0, 100)
+  if (blown > 0) {
+    A *= 1 - blown
+    B *= 1 - blown
+    L += (Math.max(L, 97) - L) * blown
+  }
   // No edit may more than roughly double a colour's strength (stops stacked boosts frying skin)
   const cap = Math.max(C0 * 1.8, C0 + 18)
   const Cn = Math.hypot(A, B)
@@ -328,6 +335,20 @@ function renderLab(src: Prepared, p: Params): Float32Array {
     out[i * 3 + 2] = B
   }
   return out
+}
+
+/** Share of the subject area (centre of frame) that is blown out to pure white in the original. */
+export function blownShare(px: Pixels): number {
+  const { w, h, data } = px
+  let n = 0
+  let hit = 0
+  for (let y = Math.floor(h * 0.15); y < h * 0.85; y += 2)
+    for (let x = Math.floor(w * 0.2); x < w * 0.8; x += 2) {
+      const i = (y * w + x) * 4
+      n++
+      if (Math.min(data[i], data[i + 1], data[i + 2]) > 246) hit++
+    }
+  return n ? hit / n : 0
 }
 
 /** Full-size preview of the model. */

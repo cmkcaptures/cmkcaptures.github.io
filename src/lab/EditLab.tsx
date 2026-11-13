@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Pixels } from './look'
 import { loadPixels, mergeRecipe, presetXmp, steps } from './look'
 import type { Calibration, Descriptor, FitResult, Params } from './engine'
-import { blend, describeText, learnCalibration, matchScore, measureRef, prepare, renderImage, sameShot, scaleParams, scoreFor, toRecipe } from './engine'
+import { blend, describeText, learnCalibration, matchScore, measureRef, prepare, renderImage, sameShot, scaleParams, scoreFor, toRecipe, blownShare } from './engine'
 import type { SavedLook } from './looksApi'
 import { deleteLook, listLooks, saveLook, thumbFrom } from './looksApi'
 import { clearCalibration, loadCalibration, saveCalibration } from './calibration'
@@ -397,6 +397,7 @@ export default function EditLab() {
                   <i className="b" style={{ width: `${beforeScore}%` }} />
                   <i className="a" style={{ width: `${liveScore}%` }} />
                 </div>
+                {mine && blownShare(mine.pixels) > 0.02 && <small>⚠ Part of your subject is blown out (pure white) in the original, usually flash too strong or too close. No edit can bring that detail back, so those bits stay white. Next time: lower the flash power or bounce it.</small>}
                 {liveScore !== null && liveScore < 70 && <small>Below 70% usually means the lighting differs (flash vs ambient, colour of the venue lights). Ask Sandy what to change on the shoot.</small>}
               </div>
               <div className="lb-view-tabs">
