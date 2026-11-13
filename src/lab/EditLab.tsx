@@ -169,8 +169,8 @@ export default function EditLab() {
       c.height = h
     }
     before.current.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(mine.pixels!.data), w, h), 0, 0)
-    const id = requestAnimationFrame(() => canvas.current?.getContext('2d')!.putImageData(render(mine.pixels!, scaled), 0, 0))
-    return () => cancelAnimationFrame(id)
+    const id = window.setTimeout(() => canvas.current?.getContext('2d')!.putImageData(render(mine.pixels!, scaled), 0, 0), 0)
+    return () => window.clearTimeout(id)
   }, [mine, scaled])
 
   const correction = useMemo(() => (result && target ? makeRecipe(result.look, target) : null), [result, target])
