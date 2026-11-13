@@ -464,7 +464,7 @@ export function cleanCurve(points: [number, number][]): [number, number][] {
     // slope kept between 0.45 and 2.2 so nothing collapses to flat black or explodes
     pts[i] = [pts[i][0], Math.round(clamp(pts[i][1], y0 + dx * 0.45, y0 + dx * 2.2))]
   }
-  return pts.map(([x, y]) => [x, clamp(y, 0, 255)] as [number, number])
+  return pts.map(([x, y]) => [Math.round(x), Math.round(clamp(y, 0, 255))] as [number, number])
 }
 
 /** Smooth (monotone cubic) curve lookup table, the same shape Lightroom draws through the points. */

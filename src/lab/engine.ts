@@ -406,7 +406,7 @@ export function distance(x: Descriptor, t: Descriptor): number {
     const a = x.bands[k]
     const b = t.bands[k]
     if (a.w < 0.004 || b.w < 0.004) continue
-    const w = Math.min(1, Math.min(a.w, b.w) * 20)
+    const w = Math.min(1, Math.min(a.w, b.w) * 20) * (Math.min(a.w, b.w) / Math.max(a.w, b.w)) ** 0.5
     let dh = Math.abs(a.h - b.h)
     if (dh > 180) dh = 360 - dh
     e += w * (((a.c - b.c) / 6) ** 2 + ((a.L - b.L) / 8) ** 2 + (dh / 10) ** 2)
@@ -419,7 +419,7 @@ export function distance(x: Descriptor, t: Descriptor): number {
 }
 
 /** 0-100 "how close" score for display. */
-export const matchScore = (d: number) => Math.round(100 * Math.exp(-d / 40))
+export const matchScore = (d: number) => Math.round(100 * Math.exp(-d / 150))
 
 // ---------------- the solver ----------------
 
@@ -430,7 +430,7 @@ function cloneP(p: Params): Params {
 function quantMap(src: number[], tgt: number[]): [number, number][] {
   const idx = [1, 3, 5, 8, 11, 13, 15]
   const pts: [number, number][] = [[0, clamp(tgt[0] * 2.55 - src[0] * 2.55 * 0.6, 0, 45)]]
-  for (const i of idx) pts.push([clamp(src[i] * 2.55, 1, 254), clamp(tgt[i] * 2.55, 0, 255)])
+  for (const i of idx) pts.push([Math.round(clamp(src[i] * 2.55, 1, 254)), Math.round(clamp(tgt[i] * 2.55, 0, 255))])
   pts.push([255, clamp(255 - (src[16] - tgt[16]) * 2.55, 215, 255)])
   return cleanCurve(pts)
 }
@@ -441,13 +441,27 @@ export interface FitResult {
   after: number
 }
 
+/** "Keep it natural": every slider costs a little, so only clear evidence pushes one far (stops it chasing scene content). */
+function penalty(p: Params): number {
+  let e = (p.temp / 1400) ** 2 + (p.tint / 35) ** 2 + (p.saturation / 45) ** 2 + (p.vibrance / 50) ** 2 + (p.vignette / 50) ** 2
+  for (const b of BANDS) {
+    const v = p.hsl[b]
+    e += 0.35 * ((v.hue / 35) ** 2 + (v.sat / 50) ** 2 + (v.lum / 40) ** 2)
+  }
+  for (const z of ['shadows', 'midtones', 'highlights'] as const) e += (p.grade[z].sat / 35) ** 2
+  // Curve: bends far from a straight line cost more
+  for (const [x, y] of p.curve) e += 0.15 * ((y - x) / 60) ** 2
+  return e * 4
+}
+
 /** Finds the Lightroom settings that take `src` closest to `target`. */
 export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) => void, passCount = 4): FitResult {
   const n = src.w * src.h
   const measureP = (p: Params) => describe(renderLab(src, p), n, src.ex, src.ey)
-  const loss = (p: Params) => distance(measureP(p), target)
+  const look = (p: Params) => distance(measureP(p), target)
+  const loss = (p: Params) => look(p) + penalty(p)
   let p = blankParams()
-  const before = loss(p)
+  const before = look(p)
 
   // 1. Exposure from the midtones, then the tone curve from the full histogram.
   const d0 = measureP(p)
@@ -559,7 +573,7 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
   p.vignette = Math.round(p.vignette)
   for (const b of BANDS) p.hsl[b] = { hue: Math.round(p.hsl[b].hue), sat: Math.round(p.hsl[b].sat), lum: Math.round(p.hsl[b].lum) }
   for (const z of ['shadows', 'midtones', 'highlights'] as const) p.grade[z] = { hue: Math.round(p.grade[z].hue), sat: Math.round(p.grade[z].sat) }
-  return { params: p, before, after: loss(p) }
+  return { params: p, before, after: look(p) }
 }
 
 /** Blend between no edit and the full edit (the Strength slider / preset Amount). */
