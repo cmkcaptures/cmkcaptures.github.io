@@ -244,7 +244,7 @@ export function makeRecipe(from: Look, to: Look): Recipe {
     let dh = t.hue - f.hue
     if (dh > 180) dh -= 360
     if (dh < -180) dh += 360
-    hsl[b] = { hue: Math.round(clamp(dh * 1.5, -40, 40)), sat: Math.round(clamp((t.sat / Math.max(0.05, f.sat) - 1) * 100, -100, 100)), lum: Math.round(clamp((t.lum - f.lum) * 220, -100, 100)) }
+    hsl[b] = { hue: Math.round(clamp(dh * 1.5, -40, 40)), sat: Math.round(clamp((t.sat / Math.max(0.08, f.sat) - 1) * 70, -70, 60)), lum: Math.round(clamp((t.lum - f.lum) * 160, -60, 60)) }
   }
   const sub = (a: number[], b: number[]) => a.map((v, i) => v - b[i]) as [number, number, number]
   return {
@@ -252,17 +252,17 @@ export function makeRecipe(from: Look, to: Look): Recipe {
     temp: Math.round(clamp((to.yb - from.yb) * 9000, -2500, 2500) / 50) * 50,
     tint: Math.round(clamp((to.mg - from.mg) * 250, -60, 60)),
     contrast: r5(contrast),
-    highlights: r5(clamp((delta(7) - delta(5)) * 1.2, -100, 100)),
-    shadows: r5(clamp((delta(2) - delta(3)) * 1.5 + delta(2) * 0.8, -100, 100)),
-    whites: r5(clamp(delta(8) * 1.1, -100, 100)),
-    blacks: r5(clamp(delta(0) * 1.6, -100, 100)),
+    highlights: r5(clamp((delta(7) - delta(5)) * 0.8, -70, 70)),
+    shadows: r5(clamp((delta(2) - delta(3)) * 1.1 + delta(2) * 0.6, -70, 70)),
+    whites: r5(clamp(delta(8) * 0.7, -60, 60)),
+    blacks: r5(clamp(delta(0) * 1.2, -70, 70)),
     curve: [[0, Math.round(clamp(to.q[0] - after[0] * 0.5, 0, 60))], ...[1, 3, 4, 5, 7].map((i) => [Math.round(after[i]), Math.round(to.q[i])] as [number, number]), [255, Math.round(clamp(255 - (after[8] - to.q[8]), 200, 255))]],
-    vibrance: r5(clamp((to.sat / Math.max(0.03, from.sat) - 1) * 80, -100, 100)),
+    vibrance: r5(clamp((to.sat / Math.max(0.05, from.sat) - 1) * 60, -60, 60)),
     hsl,
     grade: { shadows: tintToGrade(sub(to.tones.shadows, from.tones.shadows)), highlights: tintToGrade(sub(to.tones.highlights, from.tones.highlights)) },
-    vignette: r5(clamp((to.vignette - from.vignette) * 160, -100, 100)),
-    clarity: r5(clamp((to.clarity / Math.max(0.5, from.clarity) - 1) * 70, -100, 100)),
-    grain: r5(clamp((to.grain - from.grain) * 6, 0, 80)),
+    vignette: r5(clamp((to.vignette - from.vignette) * 100, -50, 30)),
+    clarity: r5(clamp((to.clarity / Math.max(0.5, from.clarity) - 1) * 50, -50, 50)),
+    grain: r5(clamp((to.grain - from.grain) * 4, 0, 50)),
   }
 }
 
