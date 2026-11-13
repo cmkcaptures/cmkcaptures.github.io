@@ -38,6 +38,11 @@ function labToLin(L: number, a: number, b: number): [number, number, number] {
   return [3.2406 * x - 1.5372 * y - 0.4986 * z, -0.9689 * x + 1.8758 * y + 0.0415 * z, 0.0557 * x - 0.204 * y + 1.057 * z]
 }
 
+function inGamut(L: number, a: number, b: number): boolean {
+  const [r, g, bl] = labToLin(L, a, b)
+  return r > -0.002 && g > -0.002 && bl > -0.002 && r < 1.002 && g < 1.002 && bl < 1.002
+}
+
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
 const smooth = (v: number, a: number, b: number) => {
   const t = clamp((v - a) / (b - a), 0, 1)
@@ -222,6 +227,7 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
     b /= top
   }
   let [L, A, B] = linToLab(r, g, b)
+  const C0 = Math.hypot(A, B)
   // Tone curve on lightness (gamma-encoded domain), chroma follows a little so lifted shadows don't go grey.
   const L0 = L
   L = lut[clamp(Math.round(L * 2.55), 0, 255)] / 2.55
@@ -278,7 +284,27 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
     const d = Math.hypot(ex, ey)
     L *= 1 + (p.vignette / 100) * 0.55 * smooth(d, 0.45, 1.25)
   }
-  return [clamp(L, 0, 100), A, B]
+  L = clamp(L, 0, 100)
+  // No edit may more than roughly double a colour's strength (stops stacked boosts frying skin)
+  const cap = Math.max(C0 * 1.8, C0 + 18)
+  const Cn = Math.hypot(A, B)
+  if (Cn > cap) {
+    A *= cap / Cn
+    B *= cap / Cn
+  }
+  // Gamut compression: pull colour back towards neutral (same lightness + hue) instead of clipping channels
+  if ((Cn > 20 || L < 6 || L > 94) && !inGamut(L, A, B)) {
+    let lo = 0
+    let hi = 1
+    for (let s = 0; s < 7; s++) {
+      const m = (lo + hi) / 2
+      if (inGamut(L, A * m, B * m)) lo = m
+      else hi = m
+    }
+    A *= lo
+    B *= lo
+  }
+  return [L, A, B]
 }
 
 function wbGains(p: Params): [number, number, number] {
@@ -563,7 +589,9 @@ function penalty(p: Params): number {
   let e = (p.temp / 1100) ** 2 + (p.tint / 18) ** 2 + (p.saturation / 45) ** 2 + (p.vibrance / 50) ** 2 + (p.vignette / 50) ** 2
   for (const b of BANDS) {
     const v = p.hsl[b]
-    e += 0.35 * ((v.hue / 35) ** 2 + (v.sat / 50) ** 2 + (v.lum / 40) ** 2)
+    // Skin lives in the red/orange/yellow bands: shifting their hue or pumping their saturation makes people look wrong
+    const skinBand = b === 'Red' || b === 'Orange' || b === 'Yellow'
+    e += 0.35 * ((v.hue / (skinBand ? 15 : 35)) ** 2 + (v.sat / (skinBand ? 35 : 50)) ** 2 + (v.lum / 40) ** 2)
   }
   for (const z of ['shadows', 'midtones', 'highlights'] as const) e += (p.grade[z].sat / 35) ** 2
   // Curve: bends far from a straight line cost more
@@ -597,7 +625,7 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     const scene = (d.L[6] + d.L[8] + d.L[10]) / 3 - (own.L[6] + own.L[8] + own.L[10]) / 3
     return Math.abs(d.skin.L - ownSkin.L - scene)
   }
-  const SKIN_LIMIT = 3
+  const SKIN_LIMIT = 8
   let p = blankParams()
   const before = look(p)
 
@@ -655,7 +683,7 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     if (dh > 180) dh -= 360
     if (dh < -180) dh += 360
     p.hsl[BANDS[k]] = {
-      hue: Math.round(clamp(dh / HSL_HUE, -60, 60)),
+      hue: Math.round(clamp(dh / HSL_HUE, -30, 30)),
       sat: Math.round(clamp((b.c / Math.max(3, a.c) - 1) * 100, -70, 70)),
       lum: Math.round(clamp((b.L - a.L) / HSL_LUM / Math.max(0.3, clamp(a.c / 30, 0, 1)), -60, 60)),
     }
@@ -691,7 +719,7 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
   for (const b of BANDS) {
     knobs.push({ get: (q) => q.hsl[b].sat, set: (q, v) => (q.hsl[b].sat = v), step: 12, lo: -80, hi: 80 })
     knobs.push({ get: (q) => q.hsl[b].lum, set: (q, v) => (q.hsl[b].lum = v), step: 12, lo: -70, hi: 70 })
-    knobs.push({ get: (q) => q.hsl[b].hue, set: (q, v) => (q.hsl[b].hue = v), step: 12, lo: -70, hi: 70 })
+    knobs.push({ get: (q) => q.hsl[b].hue, set: (q, v) => (q.hsl[b].hue = v), step: 12, lo: -40, hi: 40 })
   }
   // Curve points (y values) are knobs too.
   for (let i = 1; i < p.curve.length; i++) knobs.push({ get: (q) => q.curve[i]?.[1] ?? 0, set: (q, v) => q.curve[i] && (q.curve[i] = [q.curve[i][0], v]), step: 8, lo: 0, hi: 255 })
