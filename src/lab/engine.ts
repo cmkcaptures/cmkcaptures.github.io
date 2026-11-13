@@ -227,6 +227,16 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
   r *= wbR * k
   g *= wbG * k
   b *= wbB * k
+  // Highlight roll-off (like Lightroom): bright tones compress smoothly towards white instead of
+  // all clipping to one flat value, so folds, fabric and skin detail survive exposure/warmth pushes.
+  const Y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  const KNEE = 0.55
+  if (Y > KNEE) {
+    const Yc = KNEE + (1 - KNEE) * (1 - Math.exp(-(Y - KNEE) / (1 - KNEE)))
+    r *= Yc / Y
+    g *= Yc / Y
+    b *= Yc / Y
+  }
   const top = Math.max(r, g, b)
   if (top > 1) {
     r /= top
@@ -298,7 +308,7 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
   }
   // No edit may more than roughly double a colour's strength (stops stacked boosts frying skin)
   // Whites and pale tones may only warm slightly (creamy), never turn into a colour
-  const cap = Math.max(C0 * 1.8, C0 + 5 + 13 * (1 - smooth(L, 55, 88)) * smooth(C0, 3, 12))
+  const cap = Math.max(C0 * 1.4, C0 + 5 + 13 * (1 - smooth(L, 55, 88)))
   const Cn = Math.hypot(A, B)
   if (Cn > cap) {
     A *= cap / Cn
@@ -612,7 +622,8 @@ export interface FitResult {
 
 /** "Keep it natural": every slider costs a little, so only clear evidence pushes one far (stops it chasing scene content). */
 function penalty(p: Params): number {
-  let e = (p.temp / 1100) ** 2 + (p.tint / 18) ** 2 + (p.saturation / 45) ** 2 + (p.vibrance / 50) ** 2 + (p.vignette / 50) ** 2
+  // Exposure costs too, and pulling the top of the curve down (blow out, then hide it) costs a lot: it flattens highlights
+  let e = (p.exposure / 1.1) ** 2 + ((255 - p.curve[p.curve.length - 1][1]) / 30) ** 2 + (p.temp / 1100) ** 2 + (p.tint / 18) ** 2 + (p.saturation / 45) ** 2 + (p.vibrance / 50) ** 2 + (p.vignette / 50) ** 2
   for (const b of BANDS) {
     const v = p.hsl[b]
     // Skin lives in the red/orange/yellow bands: shifting their hue or pumping their saturation makes people look wrong
@@ -622,6 +633,13 @@ function penalty(p: Params): number {
   for (const z of ['shadows', 'midtones', 'highlights'] as const) e += (p.grade[z].sat / 35) ** 2
   // Curve: bends far from a straight line cost more
   for (const [x, y] of p.curve) e += 0.15 * ((y - x) / 60) ** 2
+  // Steep stretches of curve magnify noise and grain (night shots are noisy): keep every section gentle
+  for (let i = 1; i < p.curve.length; i++) {
+    const [x0, y0] = p.curve[i - 1]
+    const [x1, y1] = p.curve[i]
+    const slope = (y1 - y0) / Math.max(1, x1 - x0)
+    if (slope > 1.35) e += ((slope - 1.35) / 0.15) ** 2
+  }
   e += (p.clarity / 70) ** 2 + (p.texture / 70) ** 2
   return e * 4
 }
@@ -652,6 +670,19 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     return Math.abs(d.skin.L - ownSkin.L - scene)
   }
   const SKIN_LIMIT = 8
+  // Hard limit 2: an edit may not blow out (push past white) more of the photo than was already blown.
+  const blownBy = (p: Params) => {
+    const [wr, wg, wb] = wbGains(p)
+    const k = 2 ** p.exposure
+    let hit = 0
+    for (let i = 0; i < n; i++) {
+      const Y = (0.2126 * src.lin[i * 3] * wr + 0.7152 * src.lin[i * 3 + 1] * wg + 0.0722 * src.lin[i * 3 + 2] * wb) * k
+      if (Y > 1.15) hit++
+    }
+    return hit / n
+  }
+  const BLOWN_LIMIT = blownBy(blankParams()) + 0.02
+  const okBlown = (p: Params) => blownBy(p) <= BLOWN_LIMIT
   let p = blankParams()
   const before = look(p)
 
@@ -715,8 +746,8 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     }
   }
   p.vignette = clamp((target.vignette - d4.vignette) / 0.0055, -60, 30)
-  if (d4.clarity !== undefined && target.clarity !== undefined) p.clarity = clamp((target.clarity / Math.max(0.2, d4.clarity) - 1) * 90, -70, 50)
-  if (d4.texture !== undefined && target.texture !== undefined) p.texture = clamp((target.texture / Math.max(0.15, d4.texture) - 1) * 90, -70, 50)
+  if (d4.clarity !== undefined && target.clarity !== undefined) p.clarity = clamp((target.clarity / Math.max(0.2, d4.clarity) - 1) * 90, -70, 15)
+  if (d4.texture !== undefined && target.texture !== undefined) p.texture = clamp((target.texture / Math.max(0.15, d4.texture) - 1) * 90, -70, 15)
   // Pull the starting edit back towards neutral until it respects the skin limit.
   for (let guard = 0; guard < 14 && skinDrift(p) > SKIN_LIMIT; guard++) {
     p.curve = p.curve.map(([x, y]) => [x, Math.round(x + (y - x) * 0.75)])
@@ -724,19 +755,20 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     for (const b of BANDS) p.hsl[b] = { ...p.hsl[b], lum: Math.round(p.hsl[b].lum * 0.7) }
     p.clarity *= 0.85
   }
+  for (let guard = 0; guard < 20 && !okBlown(p); guard++) p.exposure -= 0.1
   onProgress?.(0.3)
 
   // 4. Joint refinement: coordinate search over every control, keeping whatever lowers the error.
   type Knob = { get: (p: Params) => number; set: (p: Params, v: number) => void; step: number; lo: number; hi: number }
   const knobs: Knob[] = [
-    { get: (q) => q.exposure, set: (q, v) => (q.exposure = v), step: 0.15, lo: -3, hi: 3 },
-    { get: (q) => q.temp, set: (q, v) => (q.temp = v), step: 250, lo: -2500, hi: 2500 },
+    { get: (q) => q.exposure, set: (q, v) => (q.exposure = v), step: 0.15, lo: -1.5, hi: 1.5 },
+    { get: (q) => q.temp, set: (q, v) => (q.temp = v), step: 250, lo: -2000, hi: 2000 },
     { get: (q) => q.tint, set: (q, v) => (q.tint = v), step: 6, lo: -40, hi: 40 },
     { get: (q) => q.saturation, set: (q, v) => (q.saturation = v), step: 8, lo: -70, hi: 70 },
     { get: (q) => q.vibrance, set: (q, v) => (q.vibrance = v), step: 10, lo: -60, hi: 60 },
     { get: (q) => q.vignette, set: (q, v) => (q.vignette = v), step: 10, lo: -70, hi: 40 },
-    { get: (q) => q.clarity, set: (q, v) => (q.clarity = v), step: 10, lo: -80, hi: 60 },
-    { get: (q) => q.texture, set: (q, v) => (q.texture = v), step: 10, lo: -80, hi: 60 },
+    { get: (q) => q.clarity, set: (q, v) => (q.clarity = v), step: 10, lo: -80, hi: 15 },
+    { get: (q) => q.texture, set: (q, v) => (q.texture = v), step: 10, lo: -80, hi: 15 },
   ]
   for (const z of ['shadows', 'midtones', 'highlights'] as const) {
     knobs.push({ get: (q) => q.grade[z].sat, set: (q, v) => (q.grade[z].sat = v), step: 8, lo: 0, hi: 70 })
@@ -761,7 +793,7 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
         kn.set(trial, clamp(cur + dir * kn.step * scale, kn.lo, kn.hi))
         trial.curve = cleanCurve(trial.curve)
         const l = loss(trial)
-        if (l < best - 1e-6 && (ownSkin.w < 0.01 || skinDrift(trial) <= Math.max(SKIN_LIMIT, skinDrift(p)))) {
+        if (l < best - 1e-6 && (ownSkin.w < 0.01 || skinDrift(trial) <= Math.max(SKIN_LIMIT, skinDrift(p))) && (okBlown(trial) || !okBlown(p))) {
           best = l
           p = trial
           break
