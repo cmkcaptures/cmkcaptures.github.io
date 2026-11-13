@@ -398,7 +398,7 @@ export function render(src: Pixels, r: Recipe): ImageData {
       }
       // per-band hue/saturation/luminance, faded out on near-greys and near-blacks so dark noise isn't recoloured
       const [hu, sa, ll] = rgbToHsl(clamp(R, 0, 1), clamp(G, 0, 1), clamp(B, 0, 1))
-      const weight = smooth(sa, 0.06, 0.28) * smooth(ll, 0.05, 0.18) * (1 - smooth(ll, 0.92, 0.99))
+      const weight = smooth(sa, 0.1, 0.35) * smooth(ll, 0.12, 0.32) * (1 - smooth(ll, 0.92, 0.99))
       let nl = ll
       if (weight > 0.01) {
         const band = r.hsl[bandOf(hu)]
@@ -407,7 +407,7 @@ export function render(src: Pixels, r: Recipe): ImageData {
         ;[R, G, B] = hslToRgb((hu + band.hue * weight + 360) % 360, ns, nl)
       }
       // colour grading (gentle, tone-weighted)
-      const wS = smooth(0.42 - nl, 0, 0.3) * smooth(nl, 0.02, 0.1)
+      const wS = smooth(0.42 - nl, 0, 0.3) * smooth(nl, 0.08, 0.22)
       const wH = smooth(nl - 0.58, 0, 0.3)
       R += shadowTint[0] * wS + highTint[0] * wH
       G += shadowTint[1] * wS + highTint[1] * wH
