@@ -323,7 +323,7 @@ function apply(p: Params, lut: Float32Array, wbR: number, wbG: number, wbB: numb
   }
   // No edit may more than roughly double a colour's strength (stops stacked boosts frying skin)
   // Whites and pale tones may only warm slightly (creamy), never turn into a colour
-  const cap = Math.max(C0 * 1.4, C0 + 5 + 13 * (1 - smooth(L, 55, 88)))
+  const cap = Math.max(C0 * 1.4, C0 + 4 + 14 * (1 - smooth(L, 42, 75)))
   const Cn = Math.hypot(A, B)
   if (Cn > cap) {
     A *= cap / Cn
@@ -625,7 +625,7 @@ function cloneP(p: Params): Params {
 
 function quantMap(src: number[], tgt: number[]): [number, number][] {
   const idx = [1, 3, 5, 8, 11, 13, 15]
-  const pts: [number, number][] = [[0, clamp(tgt[0] * 2.55 - src[0] * 2.55 * 0.6, 0, 45)]]
+  const pts: [number, number][] = [[0, clamp(tgt[0] * 2.55 - src[0] * 2.55 * 0.6, 0, 16)]]
   for (const i of idx) pts.push([Math.round(clamp(src[i] * 2.55, 1, 254)), Math.round(clamp(tgt[i] * 2.55, 0, 255))])
   pts.push([255, clamp(255 - (src[16] - tgt[16]) * 2.55, 215, 255)])
   return cleanCurve(pts)
@@ -646,6 +646,12 @@ function penalty(p: Params): number {
     // Skin lives in the red/orange/yellow bands: shifting their hue or pumping their saturation makes people look wrong
     const skinBand = b === 'Red' || b === 'Orange' || b === 'Yellow'
     e += 0.35 * ((v.hue / (skinBand ? 15 : 35)) ** 2 + (v.sat / (skinBand ? 35 : 50)) ** 2 + (v.lum / 40) ** 2)
+  }
+  // Neighbouring colour bands must move together: big jumps between them make blotchy, posterised skin and gradients
+  for (let k = 0; k < BANDS.length; k++) {
+    const u = p.hsl[BANDS[k]]
+    const v = p.hsl[BANDS[(k + 1) % BANDS.length]]
+    e += 0.5 * (((u.lum - v.lum) / 30) ** 2 + ((u.sat - v.sat) / 45) ** 2 + ((u.hue - v.hue) / 30) ** 2)
   }
   for (const z of ['shadows', 'midtones', 'highlights'] as const) e += (p.grade[z].sat / 35) ** 2
   // Curve: bends far from a straight line cost more
@@ -688,9 +694,19 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
     const s = d.skin
     // Skin may brighten or darken only as much as the whole photo does (an honest exposure fix), never on its own.
     const scene = (d.L[6] + d.L[8] + d.L[10]) / 3 - (own.L[6] + own.L[8] + own.L[10]) / 3
-    return s.w > 0.005 ? 12 * ((s.L - ownSkin.L - scene) / 3) ** 2 : 0
+    if (s.w <= 0.005) return 0
+    // Skin keeps its own character too: it may warm or cool a little, never go grey, neon or a different colour.
+    const c0 = Math.max(2, Math.hypot(ownSkin.a, ownSkin.b))
+    const c1 = Math.max(2, Math.hypot(s.a, s.b))
+    let dh = ((Math.atan2(s.b, s.a) - Math.atan2(ownSkin.b, ownSkin.a)) * 180) / Math.PI
+    if (dh > 180) dh -= 360
+    if (dh < -180) dh += 360
+    return 12 * ((s.L - ownSkin.L - scene) / 3) ** 2 + 6 * (Math.log(c1 / c0) / 0.3) ** 2 + 6 * (dh / 12) ** 2
   }
-  const loss = (p: Params) => look(p) + penalty(p) + skinGuard(p)
+  // Trust region: when the reference is a very different scene, a "match" isn't reachable. Chasing it wrecks the photo,
+  // so the further away the reference starts, the more the solver favours gentle, natural settings (borrow the style, keep the photo).
+  let trust = 1
+  const loss = (p: Params) => look(p) * trust + penalty(p) + skinGuard(p)
   // Hard limit: how far (in L) skin moved beyond the whole photo's own change.
   const skinDrift = (p: Params) => {
     if (ownSkin.w < 0.01) return 0
@@ -715,6 +731,7 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
   const okBlown = (p: Params) => blownBy(p) <= BLOWN_LIMIT
   let p = blankParams()
   const before = look(p)
+  trust = Math.min(1, 420 / Math.max(1, before))
 
   // 1. Exposure from the midtones, then the tone curve from the full histogram.
   const d0 = measureP(p)
@@ -791,26 +808,29 @@ export function fit(src: Prepared, target: Descriptor, onProgress?: (p: number) 
   // 4. Joint refinement: coordinate search over every control, keeping whatever lowers the error.
   type Knob = { get: (p: Params) => number; set: (p: Params, v: number) => void; step: number; lo: number; hi: number }
   const knobs: Knob[] = [
-    { get: (q) => q.exposure, set: (q, v) => (q.exposure = v), step: 0.15, lo: -1.5, hi: 1.5 },
-    { get: (q) => q.temp, set: (q, v) => (q.temp = v), step: 250, lo: -2000, hi: 2000 },
+    { get: (q) => q.exposure, set: (q, v) => (q.exposure = v), step: 0.15, lo: -0.7, hi: 0.8 },
+    { get: (q) => q.temp, set: (q, v) => (q.temp = v), step: 250, lo: -1300, hi: 1300 },
     { get: (q) => q.tint, set: (q, v) => (q.tint = v), step: 6, lo: -40, hi: 40 },
-    { get: (q) => q.saturation, set: (q, v) => (q.saturation = v), step: 8, lo: -70, hi: 70 },
+    { get: (q) => q.saturation, set: (q, v) => (q.saturation = v), step: 8, lo: -35, hi: 35 },
     { get: (q) => q.vibrance, set: (q, v) => (q.vibrance = v), step: 10, lo: -60, hi: 60 },
     { get: (q) => q.vignette, set: (q, v) => (q.vignette = v), step: 10, lo: -70, hi: 40 },
-    { get: (q) => q.clarity, set: (q, v) => (q.clarity = v), step: 10, lo: -80, hi: 15 },
-    { get: (q) => q.texture, set: (q, v) => (q.texture = v), step: 10, lo: -80, hi: 15 },
+    { get: (q) => q.clarity, set: (q, v) => (q.clarity = v), step: 10, lo: -50, hi: 15 },
+    { get: (q) => q.texture, set: (q, v) => (q.texture = v), step: 10, lo: -50, hi: 15 },
   ]
   for (const z of ['shadows', 'midtones', 'highlights'] as const) {
     knobs.push({ get: (q) => q.grade[z].sat, set: (q, v) => (q.grade[z].sat = v), step: 8, lo: 0, hi: 70 })
     knobs.push({ get: (q) => q.grade[z].hue, set: (q, v) => (q.grade[z].hue = ((v % 360) + 360) % 360), step: 25, lo: -720, hi: 720 })
   }
   for (const b of BANDS) {
-    knobs.push({ get: (q) => q.hsl[b].sat, set: (q, v) => (q.hsl[b].sat = v), step: 12, lo: -80, hi: 80 })
-    knobs.push({ get: (q) => q.hsl[b].lum, set: (q, v) => (q.hsl[b].lum = v), step: 12, lo: -70, hi: 70 })
+    knobs.push({ get: (q) => q.hsl[b].sat, set: (q, v) => (q.hsl[b].sat = v), step: 12, lo: -50, hi: 50 })
+    knobs.push({ get: (q) => q.hsl[b].lum, set: (q, v) => (q.hsl[b].lum = v), step: 12, lo: -35, hi: 35 })
     knobs.push({ get: (q) => q.hsl[b].hue, set: (q, v) => (q.hsl[b].hue = v), step: 12, lo: -40, hi: 40 })
   }
   // Curve points (y values) are knobs too.
-  for (let i = 1; i < p.curve.length; i++) knobs.push({ get: (q) => q.curve[i]?.[1] ?? 0, set: (q, v) => q.curve[i] && (q.curve[i] = [q.curve[i][0], v]), step: 8, lo: 0, hi: 255 })
+  for (let i = 1; i < p.curve.length; i++) knobs.push({ get: (q) => q.curve[i]?.[1] ?? 0, set: (q, v) => q.curve[i] && (q.curve[i] = [q.curve[i][0], v]), step: 8, lo: Math.max(0, p.curve[i][0] - 30), hi: Math.min(255, p.curve[i][0] + 30) })
+  // These limits are what a careful editor would stay inside: past them an edit stops styling the photo and starts wrecking it.
+  // The quick first guess has to respect them too.
+  for (const kn of knobs) kn.set(p, clamp(kn.get(p), kn.lo, kn.hi))
 
   let best = loss(p)
   const passes = passCount
